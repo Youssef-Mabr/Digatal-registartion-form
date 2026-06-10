@@ -1,21 +1,25 @@
 // Success Page Handler
-window.addEventListener('DOMContentLoaded', function() {
+const API_BASE = 'http://localhost:5000/api';
+
+window.addEventListener('DOMContentLoaded', async function() {
     const referenceNumber = localStorage.getItem('lastSubmission');
-    
+
     if (!referenceNumber) {
         window.location.href = 'index.html';
         return;
     }
-    
-    // Get application data
-    const applications = JSON.parse(localStorage.getItem('applications') || '[]');
-    const application = applications.find(app => app.referenceNumber === referenceNumber);
-    
-    if (application) {
+
+    try {
+        const response = await fetch(`${API_BASE}/applications/reference/${referenceNumber}`);
+        const application = await response.json();
+
+        if (!response.ok) {
+            throw new Error(application.message || 'Application not found');
+        }
+
         document.getElementById('referenceNumber').textContent = application.referenceNumber;
-        
-        // Format submission date
-        const date = new Date(application.submissionDate);
+
+        const date = new Date(application.submittedAt || application.submissionDate || Date.now());
         const formattedDate = date.toLocaleDateString('en-MY', {
             day: '2-digit',
             month: 'long',
@@ -24,6 +28,9 @@ window.addEventListener('DOMContentLoaded', function() {
             minute: '2-digit'
         });
         document.getElementById('submissionDate').textContent = formattedDate;
+    } catch (error) {
+        alert(error.message);
+        window.location.href = 'index.html';
     }
 });
 

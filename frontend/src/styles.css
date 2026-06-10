@@ -122,9 +122,11 @@ body {
 }
 
 .hero {
+    position: relative;
     background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
     padding: 80px 0;
     flex: 1;
+    overflow: hidden;
 }
 
 .hero-content {
@@ -132,53 +134,108 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 60px;
     align-items: center;
+    position: relative;
+    z-index: 2;
+    background: transparent;
+}
+
+.hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.hero-bg video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .hero-text h1 {
     font-size: 48px;
-    font-weight: 700;
-    color: var(--text-dark);
+    font-weight: 800;
+    color: #ffffff;
     margin-bottom: 20px;
-    line-height: 1.2;
+    line-height: 1.1;
+    text-shadow: 0 4px 18px rgba(0,0,0,0.5);
 }
 
 .subtitle {
     font-size: 28px;
-    color: var(--primary-green);
-    font-weight: 600;
+    color: rgba(255,255,255,0.95);
+    font-weight: 700;
     margin-bottom: 15px;
+    text-shadow: 0 3px 12px rgba(0,0,0,0.45);
 }
 
 .description {
     font-size: 18px;
-    color: var(--text-gray);
+    color: rgba(255,255,255,0.92);
     margin-bottom: 30px;
     line-height: 1.8;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 
 .parking-illustration {
-    background: linear-gradient(135deg, var(--primary-green) 0%, var(--dark-green) 100%);
-    border-radius: 20px;
-    padding: 60px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-shadow: 0 10px 40px rgba(0,200,83,0.3);
+    /* removed visual styling so hero matches page background */
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    display: block;
+    box-shadow: none;
 }
 
-.parking-spot {
-    background: white;
-    border: 4px dashed var(--accent-yellow);
-    border-radius: 15px;
-    padding: 40px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
+.parking-spot,
 .car-icon {
-    font-size: 80px;
-    animation: float 3s ease-in-out infinite;
+    display: none !important;
+}
+
+/* Hero video styles (only for hero area up to Subscribe button) */
+.hero-content {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+}
+
+.hero-image {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.hero-video {
+    position: relative;
+    width: 520px;
+    height: 360px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+}
+
+.hero-video video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.video-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0.0) 100%);
+    pointer-events: none;
+}
+
+.hero-text, .hero-text * {
+    position: relative;
+    z-index: 3;
+}
+
+.btn-primary {
+    box-shadow: 0 8px 28px rgba(0,0,0,0.28);
 }
 
 @keyframes float {
