@@ -73,26 +73,79 @@
 
                     <div id="vehiclesContainer"></div>
 
-                    <div class="form-section" id="parkingSection" style="display:none;">
-                        <h2>Parking Subscription</h2>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Parking Type *</label>
-                                <div class="radio-group">
-                                    <label class="radio-label">
-                                        <input type="radio" name="parkingType" value="Non Reserved" data-price="159" data-testid="parking-type-non-reserved">
-                                        <span>Non Reserved (RM159)</span>
-                                    </label>
-                                    <label class="radio-label">
-                                        <input type="radio" name="parkingType" value="Reserved" data-price="212" data-testid="parking-type-reserved">
-                                        <span>Reserved (RM212)</span>
-                                    </label>
-                                    <label class="radio-label">
-                                        <input type="radio" name="parkingType" value="Premium" data-price="318" data-testid="parking-type-premium">
-                                        <span>Premium (RM318)</span>
-                                    </label>
-                                </div>
+                    <div class="form-section parking-subscription-section" id="parkingSection" style="display:none;">
+                        <div class="parking-section-header">
+                            <div>
+                                <h2>Parking Subscription</h2>
+                                <p class="parking-section-subtitle">Choose the plan that best matches your parking needs.</p>
                             </div>
+                        </div>
+                        <div class="parking-plans" role="radiogroup" aria-label="Parking Type">
+                            <label class="parking-plan-card parking-plan-card--non-reserved">
+                                <input type="radio" name="parkingType" value="Non Reserved" data-price="159" data-testid="parking-type-non-reserved">
+                                <div class="parking-plan-card__glow"></div>
+                                <div class="parking-plan-card__top">
+                                    <div class="parking-plan-card__icon" aria-hidden="true"><span>◌</span></div>
+                                    <div class="parking-plan-card__badge">Best for flexible monthly users</div>
+                                </div>
+                                <div class="parking-plan-card__content">
+                                    <div class="parking-plan-card__title-row">
+                                        <h3>Non-Reserved Parking</h3>
+                                        <span class="parking-plan-card__availability is-available">Available</span>
+                                    </div>
+                                    <p class="parking-plan-card__price">RM159<span>/month</span></p>
+                                    <ul class="parking-plan-card__benefits">
+                                        <li>Low-cost monthly access</li>
+                                        <li>Flexible parking spot selection</li>
+                                        <li>Ideal for occasional drivers</li>
+                                    </ul>
+                                </div>
+                                <div class="parking-plan-card__footer"><span class="parking-plan-card__button">Subscribe</span></div>
+                            </label>
+
+                            <label class="parking-plan-card parking-plan-card--reserved">
+                                <input type="radio" name="parkingType" value="Reserved" data-price="212" data-testid="parking-type-reserved">
+                                <div class="parking-plan-card__glow"></div>
+                                <div class="parking-plan-card__top">
+                                    <div class="parking-plan-card__icon" aria-hidden="true"><span>◉</span></div>
+                                    <div class="parking-plan-card__badge parking-plan-card__badge--highlight">Most popular choice</div>
+                                </div>
+                                <div class="parking-plan-card__content">
+                                    <div class="parking-plan-card__title-row">
+                                        <h3>Reserved Parking</h3>
+                                        <span class="parking-plan-card__availability is-limited">Limited</span>
+                                    </div>
+                                    <p class="parking-plan-card__price">RM212<span>/month</span></p>
+                                    <ul class="parking-plan-card__benefits">
+                                        <li>Dedicated reserved parking space</li>
+                                        <li>Better convenience and reliability</li>
+                                        <li>Perfect for daily commuters</li>
+                                    </ul>
+                                </div>
+                                <div class="parking-plan-card__footer"><span class="parking-plan-card__button">Subscribe</span></div>
+                            </label>
+
+                            <label class="parking-plan-card parking-plan-card--premium">
+                                <input type="radio" name="parkingType" value="Premium" data-price="318" data-testid="parking-type-premium">
+                                <div class="parking-plan-card__glow"></div>
+                                <div class="parking-plan-card__top">
+                                    <div class="parking-plan-card__icon" aria-hidden="true"><span>★</span></div>
+                                    <div class="parking-plan-card__badge">Premium access & priority</div>
+                                </div>
+                                <div class="parking-plan-card__content">
+                                    <div class="parking-plan-card__title-row">
+                                        <h3>Premium Parking</h3>
+                                        <span class="parking-plan-card__availability is-limited">Exclusive</span>
+                                    </div>
+                                    <p class="parking-plan-card__price">RM318<span>/month</span></p>
+                                    <ul class="parking-plan-card__benefits">
+                                        <li>Premium parking experience</li>
+                                        <li>Priority access and better positioning</li>
+                                        <li>Best value for frequent users</li>
+                                    </ul>
+                                </div>
+                                <div class="parking-plan-card__footer"><span class="parking-plan-card__button">Subscribe</span></div>
+                            </label>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
