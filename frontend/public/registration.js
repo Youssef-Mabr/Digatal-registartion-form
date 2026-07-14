@@ -1,11 +1,89 @@
 // Registration Form Handler
 let numberOfVehicles = 0;
 
+let parkingAvailabilityMap = {};
+let parkingAvailabilityRefreshTimer = null;
+const PARKING_AVAILABILITY_REFRESH_MS = 15000;
+
 const APP_TYPE_LABELS = {
     registration: 'New Registration',
     deregistration: 'Deregistration',
     edit_remove: 'Edit / Remove Vehicle'
 };
+
+function isParkingTypeAvailable(parkingType) {
+    const key = getParkingTypeKey(parkingType);
+    if (!key) {
+        return false;
+    }
+
+    const record = parkingAvailabilityMap[key];
+    return record ? record.available !== false : true;
+}
+
+function updateParkingAvailabilityCards(showNotice = false) {
+    const parkingInputs = document.querySelectorAll('input[name="parkingType"]');
+    let selectedInput = document.querySelector('input[name="parkingType"]:checked');
+
+    parkingInputs.forEach(input => {
+        const card = input.closest('.parking-plan-card');
+        const availabilityKey = getParkingTypeKey(input.value);
+        const availability = availabilityKey ? parkingAvailabilityMap[availabilityKey] : null;
+        const isAvailable = availability ? availability.available !== false : true;
+        const statusBadge = card ? card.querySelector('[data-parking-status]') : null;
+        const actionButton = card ? card.querySelector('[data-parking-action]') : null;
+
+        input.disabled = !isAvailable;
+
+        if (card) {
+            card.classList.toggle('is-sold-out', !isAvailable);
+            card.setAttribute('aria-disabled', String(!isAvailable));
+        }
+
+        if (statusBadge) {
+            statusBadge.textContent = isAvailable ? 'Available' : 'Sold Out';
+            statusBadge.classList.toggle('is-available', isAvailable);
+            statusBadge.classList.toggle('is-sold-out', !isAvailable);
+        }
+
+        if (actionButton) {
+            actionButton.disabled = !isAvailable;
+            actionButton.textContent = isAvailable ? 'Subscribe' : 'Sold Out';
+        }
+    });
+
+    selectedInput = document.querySelector('input[name="parkingType"]:checked');
+    if (selectedInput && selectedInput.disabled) {
+        selectedInput.checked = false;
+        if (showNotice) {
+            showAppMessage('The selected parking type is now sold out. Please choose another option.', 'warning');
+        }
+    }
+}
+
+async function loadParkingAvailability(showNotice = false) {
+    try {
+        const parkingAvailability = await fetchParkingAvailability({ skipLoading: true });
+        parkingAvailabilityMap = normalizeParkingAvailability(parkingAvailability);
+        updateParkingAvailabilityCards(showNotice);
+    } catch (error) {
+        console.warn('Unable to load parking availability.', error);
+    }
+}
+
+function startParkingAvailabilityPolling() {
+    stopParkingAvailabilityPolling();
+    parkingAvailabilityRefreshTimer = window.setInterval(() => {
+        loadParkingAvailability(false);
+    }, PARKING_AVAILABILITY_REFRESH_MS);
+}
+
+function stopParkingAvailabilityPolling() {
+    if (parkingAvailabilityRefreshTimer) {
+        window.clearInterval(parkingAvailabilityRefreshTimer);
+        parkingAvailabilityRefreshTimer = null;
+    }
+}
 
 function getApplicationType() {
     const stored = sessionStorage.getItem('applicationType');
@@ -293,6 +371,9 @@ function validateParkingSelections() {
     if (!parkingType) {
         throw new Error('Please select a parking type');
     }
+    if (!isParkingTypeAvailable(parkingType)) {
+        throw new Error('The selected parking type is sold out. Please choose another option.');
+    }
     if (!subscriptionPeriod) {
         throw new Error('Please select a subscription period');
     }
@@ -404,6 +485,10 @@ window.addEventListener('DOMContentLoaded', function() {
     // Apply application type UX (banner + remarks visibility). Redirects if type is missing.
     if (!applyApplicationType()) return;
 
+    loadParkingAvailability();
+    startParkingAvailabilityPolling();
+    window.addEventListener('beforeunload', stopParkingAvailabilityPolling);
+
     const savedData = sessionStorage.getItem('currentApplication');
     if (!savedData) return;
 
@@ -421,4 +506,5 @@ window.addEventListener('DOMContentLoaded', function() {
 
     populateVehicleFields(data);
     populateParkingSelections(data);
+    updateParkingAvailabilityCards(false);
 });

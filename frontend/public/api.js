@@ -2,6 +2,54 @@ const API_BASE_URL = window.__API_BASE_URL__ || 'https://hispeedcity-backend-635
 let activeRequestCount = 0;
 let messageTimer = null;
 
+const PARKING_TYPE_META = {
+    'Non Reserved': { key: 'non_reserved', label: 'Non-Reserved Parking' },
+    Reserved: { key: 'reserved', label: 'Reserved Parking' },
+    Premium: { key: 'premium', label: 'Premium Parking' },
+};
+
+function getParkingTypeMeta(parkingType) {
+    return PARKING_TYPE_META[parkingType] || null;
+}
+
+function getParkingTypeKey(parkingType) {
+    const meta = getParkingTypeMeta(parkingType);
+    return meta ? meta.key : null;
+}
+
+function getParkingTypeLabel(parkingType) {
+    const meta = getParkingTypeMeta(parkingType);
+    return meta ? meta.label : (parkingType || 'Parking Type');
+}
+
+function normalizeParkingAvailability(items) {
+    const availabilityMap = {};
+    (Array.isArray(items) ? items : []).forEach(item => {
+        if (!item) {
+            return;
+        }
+
+        const key = item.key || getParkingTypeKey(item.parkingType);
+        if (!key) {
+            return;
+        }
+
+        availabilityMap[key] = {
+            key,
+            parkingType: item.parkingType || '',
+            label: item.label || getParkingTypeLabel(item.parkingType),
+            available: item.available !== false,
+            updatedAt: item.updatedAt || null,
+        };
+    });
+    return availabilityMap;
+}
+
+async function fetchParkingAvailability(options = {}) {
+    const response = await requestJson('/parking-availability', options);
+    return Array.isArray(response.parkingAvailability) ? response.parkingAvailability : [];
+}
+
 function ensureFeedbackShell() {
     if (!document.getElementById('appLoadingOverlay')) {
         const overlay = document.createElement('div');

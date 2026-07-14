@@ -20,6 +20,22 @@ window.addEventListener('DOMContentLoaded', function() {
         window.location.href = 'review.html';
         return;
     }
+
+    const parkingType = data.parkingType;
+    if (!parkingType) {
+        window.location.href = 'registration.html';
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+        submitBtn.dataset.originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Checking availability...';
+    }
+
+    loadParkingAvailabilityForPayment(parkingType);
+
     document.getElementById('paymentAmount').textContent = `RM ${data.totalAmount}`;
     
     // Upload area click handler
@@ -123,3 +139,32 @@ window.addEventListener('DOMContentLoaded', function() {
         submitApplication();
     });
 });
+
+async function loadParkingAvailabilityForPayment(parkingType) {
+    try {
+        const parkingAvailability = await fetchParkingAvailability({ skipLoading: true });
+        const parkingAvailabilityMap = normalizeParkingAvailability(parkingAvailability);
+        const key = getParkingTypeKey(parkingType);
+        const record = key ? parkingAvailabilityMap[key] : null;
+        const submitBtn = document.getElementById('submitBtn');
+
+        if (record && record.available === false) {
+            showAppMessage(`${getParkingTypeLabel(parkingType)} is sold out. Please choose another parking type.`, 'warning', 'Parking sold out');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Parking Sold Out';
+            }
+            setTimeout(() => {
+                window.location.href = 'registration.html';
+            }, 1500);
+            return;
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = submitBtn.dataset.originalText || 'Submit Application';
+        }
+    } catch (error) {
+        console.warn('Unable to verify parking availability before payment.', error);
+    }
+}

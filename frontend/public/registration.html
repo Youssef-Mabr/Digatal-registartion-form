@@ -86,7 +86,7 @@
                             </div>
                         </div>
                         <div class="parking-plans" role="radiogroup" aria-label="Parking Type">
-                            <label class="parking-plan-card parking-plan-card--non-reserved">
+                            <label class="parking-plan-card parking-plan-card--non-reserved" data-parking-key="non_reserved">
                                 <input type="radio" name="parkingType" value="Non Reserved" data-price="159" data-testid="parking-type-non-reserved">
                                 <div class="parking-plan-card__glow"></div>
                                 <div class="parking-plan-card__top">
@@ -98,7 +98,7 @@
                                 <div class="parking-plan-card__content">
                                     <div class="parking-plan-card__title-row">
                                         <h3>Non-Reserved Parking</h3>
-                                        <span class="parking-plan-card__availability is-available">Available</span>
+                                        <span class="parking-plan-card__availability is-available" data-parking-status>Available</span>
                                     </div>
                                     <p class="parking-plan-card__price">RM159<span>/month</span></p>
                                     <ul class="parking-plan-card__benefits">
@@ -108,11 +108,11 @@
                                     </ul>
                                 </div>
                                 <div class="parking-plan-card__footer">
-                                    <span class="parking-plan-card__button">Subscribe</span>
+                                    <button type="button" class="parking-plan-card__button" data-parking-action>Subscribe</button>
                                 </div>
                             </label>
 
-                            <label class="parking-plan-card parking-plan-card--reserved">
+                            <label class="parking-plan-card parking-plan-card--reserved" data-parking-key="reserved">
                                 <input type="radio" name="parkingType" value="Reserved" data-price="212" data-testid="parking-type-reserved">
                                 <div class="parking-plan-card__glow"></div>
                                 <div class="parking-plan-card__top">
@@ -124,7 +124,7 @@
                                 <div class="parking-plan-card__content">
                                     <div class="parking-plan-card__title-row">
                                         <h3>Reserved Parking</h3>
-                                        <span class="parking-plan-card__availability is-limited">Limited</span>
+                                        <span class="parking-plan-card__availability is-available" data-parking-status>Available</span>
                                     </div>
                                     <p class="parking-plan-card__price">RM212<span>/month</span></p>
                                     <ul class="parking-plan-card__benefits">
@@ -134,11 +134,11 @@
                                     </ul>
                                 </div>
                                 <div class="parking-plan-card__footer">
-                                    <span class="parking-plan-card__button">Subscribe</span>
+                                    <button type="button" class="parking-plan-card__button" data-parking-action>Subscribe</button>
                                 </div>
                             </label>
 
-                            <label class="parking-plan-card parking-plan-card--premium">
+                            <label class="parking-plan-card parking-plan-card--premium" data-parking-key="premium">
                                 <input type="radio" name="parkingType" value="Premium" data-price="318" data-testid="parking-type-premium">
                                 <div class="parking-plan-card__glow"></div>
                                 <div class="parking-plan-card__top">
@@ -150,7 +150,7 @@
                                 <div class="parking-plan-card__content">
                                     <div class="parking-plan-card__title-row">
                                         <h3>Premium Parking</h3>
-                                        <span class="parking-plan-card__availability is-limited">Exclusive</span>
+                                        <span class="parking-plan-card__availability is-available" data-parking-status>Available</span>
                                     </div>
                                     <p class="parking-plan-card__price">RM318<span>/month</span></p>
                                     <ul class="parking-plan-card__benefits">
@@ -160,7 +160,7 @@
                                     </ul>
                                 </div>
                                 <div class="parking-plan-card__footer">
-                                    <span class="parking-plan-card__button">Subscribe</span>
+                                    <button type="button" class="parking-plan-card__button" data-parking-action>Subscribe</button>
                                 </div>
                             </label>
                         </div>

@@ -5,6 +5,37 @@ const REVIEW_APP_TYPE_LABELS = {
     edit_remove: 'Edit / Remove Vehicle'
 };
 
+function isParkingTypeAvailable(parkingType, parkingAvailabilityMap) {
+    const key = getParkingTypeKey(parkingType);
+    if (!key) {
+        return false;
+    }
+
+    const record = parkingAvailabilityMap[key];
+    return record ? record.available !== false : true;
+}
+
+async function loadParkingAvailabilityForReview() {
+    try {
+        const parkingAvailability = await fetchParkingAvailability({ skipLoading: true });
+        return normalizeParkingAvailability(parkingAvailability);
+    } catch (error) {
+        console.warn('Unable to verify parking availability on review page.', error);
+        return {};
+    }
+}
+
+function disableProceedButton(message) {
+    const proceedBtn = document.getElementById('proceedBtn');
+    if (proceedBtn) {
+        proceedBtn.disabled = true;
+        proceedBtn.textContent = 'Parking Sold Out';
+    }
+    if (message) {
+        showAppMessage(message, 'warning', 'Parking sold out');
+    }
+}
+
 window.addEventListener('DOMContentLoaded', function() {
     const savedData = sessionStorage.getItem('currentApplication');
 
@@ -112,18 +143,33 @@ window.addEventListener('DOMContentLoaded', function() {
     // Wire proceed button
     const proceedBtn = document.getElementById('proceedBtn');
     if (proceedBtn) {
+        proceedBtn.dataset.originalText = proceedBtn.textContent;
+        proceedBtn.disabled = true;
+        proceedBtn.textContent = 'Checking availability...';
+
         if (paymentRequired) {
-            proceedBtn.textContent = 'Proceed to Payment';
             proceedBtn.addEventListener('click', () => {
                 window.location.href = 'payment.html';
             });
         } else {
-            proceedBtn.textContent = 'Submit Request';
             proceedBtn.addEventListener('click', async () => {
                 await submitNonPaymentApplication(data, proceedBtn);
             });
         }
     }
+
+    loadParkingAvailabilityForReview().then(parkingAvailabilityMap => {
+        if (!isParkingTypeAvailable(data.parkingType, parkingAvailabilityMap)) {
+            disableProceedButton(`${data.parkingType} is sold out. Please choose another parking type before continuing.`);
+            return;
+        }
+
+        const proceedBtn = document.getElementById('proceedBtn');
+        if (proceedBtn) {
+            proceedBtn.disabled = false;
+            proceedBtn.textContent = paymentRequired ? 'Proceed to Payment' : 'Submit Request';
+        }
+    });
 });
 
 async function submitNonPaymentApplication(data, button) {

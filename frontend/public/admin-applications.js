@@ -2,31 +2,54 @@
 const ADMIN_APP_TYPE_LABELS = {
     registration: 'Registration',
     deregistration: 'Deregistration',
-    edit_remove: 'Edit / Remove'
+    edit_remove: 'Edit / Remove',
+};
+
+const PARKING_CONTROL_META = {
+    non_reserved: {
+        key: 'non_reserved',
+        parkingType: 'Non Reserved',
+        label: 'Non-Reserved Parking',
+        monthlyPrice: 'RM159',
+        description: 'Flexible monthly access for drivers who want affordable parking without a fixed spot.',
+        icon: '◌',
+    },
+    reserved: {
+        key: 'reserved',
+        parkingType: 'Reserved',
+        label: 'Reserved Parking',
+        monthlyPrice: 'RM212',
+        description: 'Dedicated parking with better convenience for daily commuters and frequent visitors.',
+        icon: '◉',
+    },
+    premium: {
+        key: 'premium',
+        parkingType: 'Premium',
+        label: 'Premium Parking',
+        monthlyPrice: 'RM318',
+        description: 'Priority parking with the best access, ideal for frequent users who want premium placement.',
+        icon: '★',
+    },
 };
 
 const ADMIN_APP_TYPE_BADGE_COLORS = {
     registration: { bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0' },
     deregistration: { bg: '#fef2f2', color: '#991b1b', border: '#fecaca' },
-    edit_remove: { bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe' }
+    edit_remove: { bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe' },
 };
 
 let allApplications = [];
+let parkingAvailabilityMap = {};
+let parkingAvailabilityRefreshTimer = null;
 
 window.addEventListener('DOMContentLoaded', function() {
     const applicationsList = document.getElementById('applicationsList');
     const filter = document.getElementById('appTypeFilter');
     const searchInput = document.getElementById('applicationsSearch');
 
-    requestJson('/admin/applications', { loadingMessage: 'Loading applications...' })
-        .then(result => {
-            allApplications = result.applications || [];
-            renderApplications();
-        })
-        .catch(error => {
-            showAppMessage(error.message, 'error', 'Applications unavailable');
-            applicationsList.innerHTML = `<div style="text-align:center;padding:40px;color:#b91c1c;">${escapeHtml(error.message)}</div>`;
-        });
+    loadApplications();
+    loadParkingAvailability();
+    startParkingAvailabilityPolling();
 
     if (filter) {
         filter.addEventListener('change', renderApplications);
@@ -35,7 +58,130 @@ window.addEventListener('DOMContentLoaded', function() {
     if (searchInput) {
         searchInput.addEventListener('input', renderApplications);
     }
+
+    window.addEventListener('beforeunload', stopParkingAvailabilityPolling);
 });
+
+async function loadApplications() {
+    const applicationsList = document.getElementById('applicationsList');
+    try {
+        const result = await requestJson('/admin/applications', { loadingMessage: 'Loading applications...' });
+        allApplications = result.applications || [];
+        renderApplications();
+    } catch (error) {
+        showAppMessage(error.message, 'error', 'Applications unavailable');
+        if (applicationsList) {
+            applicationsList.innerHTML = `<div style="text-align:center;padding:40px;color:#b91c1c;">${escapeHtml(error.message)}</div>`;
+        }
+    }
+}
+
+async function loadParkingAvailability() {
+    try {
+        const result = await requestJson('/admin/parking-availability', {
+            loadingMessage: 'Loading parking control panel...',
+            skipLoading: true,
+        });
+        parkingAvailabilityMap = normalizeParkingAvailability(result.parkingAvailability || []);
+        renderParkingControlPanel();
+    } catch (error) {
+        const panel = document.getElementById('parkingControlGrid');
+        if (panel) {
+            panel.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:#b91c1c;">${escapeHtml(error.message)}</div>`;
+        }
+    }
+}
+
+function startParkingAvailabilityPolling() {
+    stopParkingAvailabilityPolling();
+    parkingAvailabilityRefreshTimer = window.setInterval(() => {
+        loadParkingAvailability();
+    }, 15000);
+}
+
+function stopParkingAvailabilityPolling() {
+    if (parkingAvailabilityRefreshTimer) {
+        window.clearInterval(parkingAvailabilityRefreshTimer);
+        parkingAvailabilityRefreshTimer = null;
+    }
+}
+
+function renderParkingControlPanel() {
+    const panel = document.getElementById('parkingControlGrid');
+    if (!panel) {
+        return;
+    }
+
+    panel.innerHTML = '';
+
+    Object.values(PARKING_CONTROL_META).forEach(meta => {
+        const availability = parkingAvailabilityMap[meta.key] || { available: true };
+        const isAvailable = availability.available !== false;
+
+        const card = document.createElement('div');
+        card.className = `parking-control-card ${isAvailable ? 'is-available' : 'is-sold-out'}`;
+
+        card.innerHTML = `
+            <div class="parking-control-card__top">
+                <div>
+                    <span class="parking-control-card__eyebrow">Parking Type</span>
+                    <h3>${escapeHtml(meta.label)}</h3>
+                </div>
+                <span class="parking-control-card__status ${isAvailable ? 'is-available' : 'is-sold-out'}">${isAvailable ? 'Available' : 'Sold Out'}</span>
+            </div>
+            <div class="parking-control-card__pricing">
+                <span class="parking-control-card__price">${escapeHtml(meta.monthlyPrice)}</span>
+                <span class="parking-control-card__period">per month</span>
+            </div>
+            <p class="parking-control-card__description">${escapeHtml(meta.description)}</p>
+            <div class="parking-control-card__footer">
+                <div class="parking-control-card__toggle-copy">
+                    <span class="parking-control-card__toggle-label">Toggle availability</span>
+                    <strong>${isAvailable ? 'ON' : 'OFF'}</strong>
+                </div>
+                <button type="button" class="parking-toggle-button ${isAvailable ? 'is-on' : 'is-off'}" data-toggle-parking="${meta.key}" aria-pressed="${isAvailable ? 'true' : 'false'}">${isAvailable ? 'ON' : 'OFF'}</button>
+            </div>
+        `;
+
+        const toggleButton = card.querySelector('[data-toggle-parking]');
+        toggleButton.addEventListener('click', () => {
+            updateParkingAvailability(meta.key, !isAvailable);
+        });
+
+        panel.appendChild(card);
+    });
+}
+
+async function updateParkingAvailability(parkingKey, nextAvailable) {
+    const meta = PARKING_CONTROL_META[parkingKey];
+    if (!meta) {
+        return;
+    }
+
+    const toggleButton = document.querySelector(`[data-toggle-parking="${parkingKey}"]`);
+    if (toggleButton) {
+        toggleButton.disabled = true;
+    }
+
+    try {
+        const result = await requestJson(`/admin/parking-availability/${encodeURIComponent(parkingKey)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ available: nextAvailable }),
+            loadingMessage: nextAvailable ? `Marking ${meta.label} available...` : `Marking ${meta.label} sold out...`,
+        });
+
+        parkingAvailabilityMap = normalizeParkingAvailability(result.parkingAvailability || []);
+        renderParkingControlPanel();
+        showAppMessage(`${meta.label} is now ${nextAvailable ? 'available' : 'sold out'}.`, 'success', 'Parking availability updated');
+    } catch (error) {
+        showAppMessage(error.message, 'error', 'Unable to update parking availability');
+    } finally {
+        if (toggleButton) {
+            toggleButton.disabled = false;
+        }
+    }
+}
 
 function renderApplications() {
     const applicationsList = document.getElementById('applicationsList');
@@ -57,13 +203,13 @@ function renderApplications() {
 
         const plateCandidates = [
             app.vehicleNumber,
-            ...(Array.isArray(app.vehicles) ? app.vehicles.map(vehicle => vehicle && vehicle.vehicleNumber).filter(Boolean) : [])
+            ...(Array.isArray(app.vehicles) ? app.vehicles.map(vehicle => vehicle && vehicle.vehicleNumber).filter(Boolean) : []),
         ];
 
         const searchableText = [
             app.fullName,
             app.referenceNumber,
-            ...plateCandidates
+            ...plateCandidates,
         ]
             .filter(Boolean)
             .join(' ')
@@ -72,11 +218,17 @@ function renderApplications() {
         return searchableText.includes(searchValue);
     });
 
-    applicationsList.innerHTML = '';
+    if (applicationsList) {
+        applicationsList.innerHTML = '';
+    }
 
     if (badge) {
         const typeLabel = filterValue === 'all' ? 'applications' : `${filterValue.replace('_', ' ')} applications`;
         badge.textContent = `${filtered.length} of ${allApplications.length} ${typeLabel}`;
+    }
+
+    if (!applicationsList) {
+        return;
     }
 
     if (filtered.length === 0) {

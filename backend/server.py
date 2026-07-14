@@ -120,6 +120,86 @@ class StatusUpdateRequest(BaseModel):
     status: ApplicationStatus
 
 
+class ParkingAvailabilityUpdateRequest(BaseModel):
+    available: bool
+
+
+PARKING_TYPE_SETTINGS = [
+    {
+        'key': 'non_reserved',
+        'parkingType': 'Non Reserved',
+        'label': 'Non-Reserved Parking',
+    },
+    {
+        'key': 'reserved',
+        'parkingType': 'Reserved',
+        'label': 'Reserved Parking',
+    },
+    {
+        'key': 'premium',
+        'parkingType': 'Premium',
+        'label': 'Premium Parking',
+    },
+]
+
+PARKING_TYPE_LOOKUP = {item['parkingType']: item for item in PARKING_TYPE_SETTINGS}
+PARKING_KEY_LOOKUP = {item['key']: item for item in PARKING_TYPE_SETTINGS}
+
+
+def parking_type_to_key(parking_type: str | None) -> str | None:
+    if not parking_type:
+        return None
+    config = PARKING_TYPE_LOOKUP.get(parking_type.strip())
+    return config['key'] if config else None
+
+
+def parking_type_to_label(parking_type: str | None) -> str:
+    if not parking_type:
+        return 'Parking Type'
+    config = PARKING_TYPE_LOOKUP.get(parking_type.strip())
+    return config['label'] if config else parking_type.strip()
+
+
+async def seed_default_parking_settings() -> None:
+    for config in PARKING_TYPE_SETTINGS:
+        await db.parking_settings.update_one(
+            {'key': config['key']},
+            {
+                '$setOnInsert': {
+                    'key': config['key'],
+                    'parkingType': config['parkingType'],
+                    'label': config['label'],
+                    'available': True,
+                    'createdAt': now_utc(),
+                    'updatedAt': now_utc(),
+                }
+            },
+            upsert=True,
+        )
+
+
+async def get_parking_availability_records() -> list[dict[str, Any]]:
+    docs = await db.parking_settings.find({}, {'_id': 0}).to_list(20)
+    doc_map = {doc.get('key'): doc for doc in docs if doc.get('key')}
+    records: list[dict[str, Any]] = []
+
+    for config in PARKING_TYPE_SETTINGS:
+        doc = doc_map.get(config['key'], {})
+        records.append({
+            'key': config['key'],
+            'parkingType': config['parkingType'],
+            'label': config['label'],
+            'available': doc.get('available', True),
+            'updatedAt': doc.get('updatedAt'),
+        })
+
+    return records
+
+
+async def get_parking_availability_map() -> dict[str, dict[str, Any]]:
+    return {record['key']: record for record in await get_parking_availability_records()}
+
+
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -230,6 +310,7 @@ async def upload_receipt_to_cloudinary(file: UploadFile) -> str:
 @app.on_event("startup")
 async def startup_event() -> None:
     await seed_default_admin()
+    await seed_default_parking_settings()
 
 
 @app.on_event("shutdown")
@@ -315,6 +396,46 @@ async def dashboard_stats(_: dict[str, Any] = Depends(get_current_admin)) -> dic
         "approvedApplications": approved,
         "rejectedApplications": rejected,
     }
+
+
+@app.get('/api/parking-availability')
+async def get_public_parking_availability() -> dict[str, list[dict[str, Any]]]:
+    return {'parkingAvailability': await get_parking_availability_records()}
+
+
+@app.get('/api/admin/parking-availability')
+async def get_admin_parking_availability(_: dict[str, Any] = Depends(get_current_admin)) -> dict[str, list[dict[str, Any]]]:
+    return {'parkingAvailability': await get_parking_availability_records()}
+
+
+@app.put('/api/admin/parking-availability/{parking_key}')
+async def update_parking_availability(
+    parking_key: str,
+    request: ParkingAvailabilityUpdateRequest,
+    _: dict[str, Any] = Depends(get_current_admin),
+) -> dict[str, list[dict[str, Any]]]:
+    config = PARKING_KEY_LOOKUP.get(parking_key)
+    if not config:
+        raise HTTPException(status_code=404, detail='Parking type not found')
+
+    await db.parking_settings.update_one(
+        {'key': parking_key},
+        {
+            '$set': {
+                'available': request.available,
+                'updatedAt': now_utc(),
+            },
+            '$setOnInsert': {
+                'key': parking_key,
+                'parkingType': config['parkingType'],
+                'label': config['label'],
+                'createdAt': now_utc(),
+            },
+        },
+        upsert=True,
+    )
+
+    return {'parkingAvailability': await get_parking_availability_records()}
 
 
 @app.get("/api/admin/applications")
@@ -655,6 +776,17 @@ async def create_application(
     if application_type == 'edit_remove' and not remarks_clean:
         raise HTTPException(status_code=400, detail='Remarks / Notes are required for Edit / Remove Vehicle requests')
 
+    parking_key = parking_type_to_key(payload.get('parkingType'))
+    if not parking_key:
+        raise HTTPException(status_code=400, detail='Invalid parking type selected')
+
+    parking_availability_map = await get_parking_availability_map()
+    parking_record = parking_availability_map.get(parking_key)
+    if not parking_record:
+        raise HTTPException(status_code=400, detail='Invalid parking type selected')
+    if not parking_record.get('available', True):
+        raise HTTPException(status_code=400, detail=f'{parking_type_to_label(payload.get("parkingType"))} is sold out. Please choose another parking type.')
+
     # Receipt is only required for paid (registration) applications
     receipt_url = ''
     if payment_required:
@@ -730,6 +862,7 @@ async def startup_event():
                 'passwordHash': hash_password(ADMIN_PASSWORD).decode('utf-8'),
                 'createdAt': datetime.now(timezone.utc),
             })
+        await seed_default_parking_settings()
     except Exception as exc:
         print(f'Application startup warning: database initialization skipped: {exc}')
 
