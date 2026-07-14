@@ -673,6 +673,46 @@ async def dashboard_stats(_: str = Depends(require_admin)):
     }
 
 
+@api_router.get('/parking-availability')
+async def get_public_parking_availability():
+    return {'parkingAvailability': await get_parking_availability_records()}
+
+
+@api_router.get('/admin/parking-availability')
+async def get_admin_parking_availability(_: str = Depends(require_admin)):
+    return {'parkingAvailability': await get_parking_availability_records()}
+
+
+@api_router.put('/admin/parking-availability/{parking_key}')
+async def update_parking_availability(
+    parking_key: str,
+    payload: ParkingAvailabilityUpdateRequest,
+    _: str = Depends(require_admin),
+):
+    config = PARKING_KEY_LOOKUP.get(parking_key)
+    if not config:
+        raise HTTPException(status_code=404, detail='Parking type not found')
+
+    await db.parking_settings.update_one(
+        {'key': parking_key},
+        {
+            '$set': {
+                'available': payload.available,
+                'updatedAt': datetime.now(timezone.utc),
+            },
+            '$setOnInsert': {
+                'key': parking_key,
+                'parkingType': config['parkingType'],
+                'label': config['label'],
+                'createdAt': datetime.now(timezone.utc),
+            },
+        },
+        upsert=True,
+    )
+
+    return {'parkingAvailability': await get_parking_availability_records()}
+
+
 @api_router.get('/admin/applications')
 async def list_applications(_: str = Depends(require_admin)):
     cursor = db.applications.find({}).sort('submittedAt', -1)
