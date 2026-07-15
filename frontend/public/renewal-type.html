@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renewal Type - Hispeedcity</title>
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="stylesheet" href="styles.css">
+    <style>html,body{background:#F5F5F5;margin:0;padding:0;}input:invalid,input:required{box-shadow:none!important;outline:none!important;}</style>
+</head>
+<body>
+    <div class="page">
+        <nav class="navbar">
+            <div class="container">
+                <div class="logo" onclick="window.location.href='index.html'" style="cursor:pointer;">
+                    <span class="logo-text">Hi<span class="logo-highlight">speedcity</span></span>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="form-container">
+                <div class="form-header">
+                    <h1 data-testid="renewal-type-title">Choose Renewal Type</h1>
+                    <p class="form-note">Select the renewal category you would like to submit.</p>
+                </div>
+
+                <div class="renewal-type-grid">
+                    <div class="renewal-type-card" onclick="selectRenewalType('individual')" data-testid="renewal-individual-card">
+                        <div class="renewal-type-icon">🚗</div>
+                        <h3>Individual Parker</h3>
+                        <p>Renew existing parking access for individual parkers. Submit renewal month note and payment receipt.</p>
+                        <span class="renewal-type-badge">Available now</span>
+                    </div>
+
+                    <div class="renewal-type-card is-disabled" data-testid="renewal-tenant-card">
+                        <div class="renewal-type-icon">🏢</div>
+                        <h3>Tenant</h3>
+                        <p>Tenant renewal will be available soon in the next phase.</p>
+                        <span class="renewal-type-badge coming-soon">Coming soon</span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='index.html'">Back to Home</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="renewal-type.js"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renewal Details</title>
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="stylesheet" href="styles.css">
+    <style>html,body{background:#F5F5F5;margin:0;padding:0;}input:invalid,input:required{box-shadow:none!important;outline:none!important;}</style>
+</head>
+<body>
+    <div class="page admin-page">
+        <nav class="navbar">
+            <div class="container">
+                <div class="logo" onclick="window.location.href='admin-dashboard.html'" style="cursor:pointer;">
+                    <span class="logo-text">Hi<span class="logo-highlight">speedcity</span></span>
+                    <span class="admin-badge">Admin</span>
+                </div>
+                <a href="index.html" class="logout-link">Logout</a>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="application-details">
+                <div class="details-header">
+                    <h1>Renewal Request Details</h1>
+                    <div class="details-actions">
+                        <button class="btn btn-secondary" onclick="window.location.href='admin-renewals.html'">Back to Renewal List</button>
+                    </div>
+                </div>
+
+                <div class="details-container" id="renewalDetailsContainer"></div>
+
+                <div class="form-actions" id="renewalActionButtons" style="display:none;">
+                    <button type="button" class="btn btn-danger" id="renewalRejectBtn">Reject</button>
+                    <button type="button" class="btn btn-success" id="renewalApproveBtn">Approve</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="admin-renewal-details.js"></script>
+</body>
+</html>

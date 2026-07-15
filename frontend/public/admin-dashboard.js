@@ -6,6 +6,10 @@ window.addEventListener('DOMContentLoaded', function() {
             document.getElementById('pendingCount').textContent = stats.pendingApplications;
             document.getElementById('approvedCount').textContent = stats.approvedApplications;
             document.getElementById('rejectedCount').textContent = stats.rejectedApplications;
+            const renewalCount = document.getElementById('renewalCount');
+            if (renewalCount) {
+                renewalCount.textContent = stats.totalRenewals || 0;
+            }
         })
         .catch(error => {
             showAppMessage(error.message, 'error', 'Dashboard unavailable');

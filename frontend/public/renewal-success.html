@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renewal Submitted</title>
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="stylesheet" href="styles.css">
+    <style>html,body{background:#F5F5F5;margin:0;padding:0;}input:invalid,input:required{box-shadow:none!important;outline:none!important;}</style>
+</head>
+<body>
+    <div class="page">
+        <nav class="navbar">
+            <div class="container">
+                <div class="logo" onclick="window.location.href='index.html'" style="cursor:pointer;">
+                    <span class="logo-text">Hi<span class="logo-highlight">speedcity</span></span>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="success-container">
+                <div class="success-icon">✓</div>
+                <h1>Renewal Request Submitted</h1>
+                <div class="success-details">
+                    <div class="success-item">
+                        <span class="success-label">Reference Number:</span>
+                        <span class="success-value" id="renewalReference">-</span>
+                    </div>
+                    <div class="success-item">
+                        <span class="success-label">Renewal Type:</span>
+                        <span class="success-value" id="renewalType">Individual</span>
+                    </div>
+                    <div class="success-item">
+                        <span class="success-label">Status:</span>
+                        <span class="status-badge pending" id="renewalStatus">Pending</span>
+                    </div>
+                    <div class="success-item">
+                        <span class="success-label">Submitted At:</span>
+                        <span class="success-value" id="renewalSubmittedAt">-</span>
+                    </div>
+                </div>
+                <p class="success-message">Your renewal request has been received and will be reviewed by the admin team shortly.</p>
+                <div class="form-actions" style="margin-top:0;">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='renewal-individual.html'">Submit Another Renewal</button>
+                    <button type="button" class="btn btn-primary" onclick="window.location.href='index.html'">Back to Home</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="renewal-success.js"></script>
+</body>
+</html>

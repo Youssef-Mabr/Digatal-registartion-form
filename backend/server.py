@@ -591,6 +591,12 @@ class ChangePasswordRequest(BaseModel):
 class StatusUpdateRequest(BaseModel):
     status: str
 
+class RenewalCreateResponse(BaseModel):
+    message: str
+    renewalReference: str
+    status: str
+    submittedAt: datetime
+
 
 class ApplicationCreateResponse(BaseModel):
     message: str
@@ -665,11 +671,19 @@ async def dashboard_stats(_: str = Depends(require_admin)):
     pending = await db.applications.count_documents({'status': STATUS_PENDING})
     approved = await db.applications.count_documents({'status': STATUS_APPROVED})
     rejected = await db.applications.count_documents({'status': STATUS_REJECTED})
+    total_renewals = await db.renewals.count_documents({})
+    pending_renewals = await db.renewals.count_documents({'status': STATUS_PENDING})
+    approved_renewals = await db.renewals.count_documents({'status': STATUS_APPROVED})
+    rejected_renewals = await db.renewals.count_documents({'status': STATUS_REJECTED})
     return {
         'totalApplications': total,
         'pendingApplications': pending,
         'approvedApplications': approved,
         'rejectedApplications': rejected,
+        'totalRenewals': total_renewals,
+        'pendingRenewals': pending_renewals,
+        'approvedRenewals': approved_renewals,
+        'rejectedRenewals': rejected_renewals,
     }
 
 
@@ -770,6 +784,142 @@ async def upload_receipt(file: UploadFile) -> str:
     return result['secure_url']
 
 
+
+async def upload_renewal_receipt(file: UploadFile) -> str:
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail='Receipt file is empty')
+
+    result = cloudinary.uploader.upload(
+        contents,
+        resource_type='auto',
+        folder='hispeedcity/renewals',
+        public_id=f'renewal-receipt-{uuid.uuid4().hex}',
+    )
+    return result['secure_url']
+
+
+async def next_renewal_reference() -> str:
+    year = datetime.now(timezone.utc).year
+    counter_id = f'renewals-{year}'
+    counter = await db.counters.find_one_and_update(
+        {'_id': counter_id},
+        {'$inc': {'seq': 1}},
+        upsert=True,
+        return_document=True,
+    )
+    if not counter:
+        counter = {'seq': 1}
+    sequence = counter.get('seq', 1)
+    return f'RN-{year}-{sequence:06d}'
+
+
+@api_router.post('/renewals', response_model=RenewalCreateResponse)
+async def create_individual_renewal(
+    renewalData: str = Form(...),
+    receipt: Optional[UploadFile] = File(None),
+):
+    import json
+
+    try:
+        payload = json.loads(renewalData)
+    except Exception:
+        raise HTTPException(status_code=400, detail='Invalid renewal data')
+
+    renewal_type = str(payload.get('renewalType') or '').strip() or 'Individual'
+    if renewal_type != 'Individual':
+        raise HTTPException(status_code=400, detail='Only Individual renewal is supported at this time')
+
+    full_name = str(payload.get('fullName') or '').strip()
+    if not full_name:
+        raise HTTPException(status_code=400, detail='Full Name is required')
+
+    month_note = str(payload.get('renewalMonthNote') or '').strip()
+    if not month_note:
+        raise HTTPException(status_code=400, detail='Renewal Month / Payment Note is required')
+
+    raw_plates = payload.get('vehiclePlateNumbers')
+    if not isinstance(raw_plates, list):
+        raise HTTPException(status_code=400, detail='Vehicle plate numbers must be provided as a list')
+
+    cleaned_plates = []
+    for plate in raw_plates:
+        cleaned = str(plate or '').strip().upper()
+        if cleaned:
+            cleaned_plates.append(cleaned)
+
+    # Preserve input order while removing duplicates.
+    unique_plates = list(dict.fromkeys(cleaned_plates))
+
+    if not unique_plates:
+        raise HTTPException(status_code=400, detail='At least one vehicle plate number is required')
+    if len(unique_plates) > 3:
+        raise HTTPException(status_code=400, detail='A maximum of 3 vehicle plate numbers is allowed')
+
+    if receipt is None:
+        raise HTTPException(status_code=400, detail='Payment receipt is required')
+
+    receipt_url = await upload_renewal_receipt(receipt)
+    submitted_at = datetime.now(timezone.utc)
+    renewal_reference = await next_renewal_reference()
+
+    renewal_doc = {
+        'renewalReference': renewal_reference,
+        'renewalType': 'Individual',
+        'fullName': full_name,
+        'vehiclePlateNumbers': unique_plates,
+        'renewalMonthNote': month_note,
+        'receiptUrl': receipt_url,
+        'status': STATUS_PENDING,
+        'submittedAt': submitted_at,
+        'updatedAt': submitted_at,
+    }
+
+    await db.renewals.insert_one(renewal_doc)
+
+    return RenewalCreateResponse(
+        message='Renewal request submitted successfully',
+        renewalReference=renewal_reference,
+        status=STATUS_PENDING,
+        submittedAt=submitted_at,
+    )
+
+
+@api_router.get('/admin/renewals')
+async def list_renewals(_: str = Depends(require_admin)):
+    cursor = db.renewals.find({}).sort('submittedAt', -1)
+    renewals = []
+    async for doc in cursor:
+        renewals.append(serialize_doc(doc))
+    return {'renewals': renewals}
+
+
+@api_router.get('/admin/renewals/{renewal_reference}')
+async def get_renewal(renewal_reference: str, _: str = Depends(require_admin)):
+    renewal = await db.renewals.find_one({'renewalReference': renewal_reference})
+    if not renewal:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+    return {'renewal': serialize_doc(renewal)}
+
+
+@api_router.patch('/admin/renewals/{renewal_reference}/status')
+async def update_renewal_status(
+    renewal_reference: str,
+    payload: StatusUpdateRequest,
+    _: str = Depends(require_admin),
+):
+    if payload.status not in ALLOWED_STATUSES:
+        raise HTTPException(status_code=400, detail='Invalid status value')
+
+    result = await db.renewals.find_one_and_update(
+        {'renewalReference': renewal_reference},
+        {'$set': {'status': payload.status, 'updatedAt': datetime.now(timezone.utc)}},
+        return_document=True,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+
+    return {'message': 'Renewal status updated', 'renewal': serialize_doc(result)}
 @api_router.post('/applications', response_model=ApplicationCreateResponse)
 async def create_application(
     applicationData: str = Form(...),

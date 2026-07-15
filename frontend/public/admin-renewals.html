@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renewal Requests</title>
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="stylesheet" href="styles.css">
+    <style>html,body{background:#F5F5F5;margin:0;padding:0;}input:invalid,input:required{box-shadow:none!important;outline:none!important;}</style>
+</head>
+<body>
+    <div class="page admin-page">
+        <nav class="navbar">
+            <div class="container">
+                <div class="logo" onclick="window.location.href='admin-dashboard.html'" style="cursor:pointer;">
+                    <span class="logo-text">Hi<span class="logo-highlight">speedcity</span></span>
+                    <span class="admin-badge">Admin</span>
+                </div>
+                <a href="index.html" class="logout-link">Logout</a>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="applications">
+                <div class="applications-header">
+                    <h1>Renewal Requests</h1>
+                    <button class="btn btn-secondary" onclick="window.location.href='admin-dashboard.html'">Back to Dashboard</button>
+                </div>
+
+                <div class="applications-filter" style="margin:16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <label for="renewalStatusFilter" style="font-weight:600;color:#374151;">Filter by Status:</label>
+                    <select id="renewalStatusFilter" style="padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;background:#fff;min-width:220px;">
+                        <option value="all">All</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                    <span id="renewalCountBadge" style="color:#6b7280;font-size:13px;"></span>
+                </div>
+
+                <div class="applications-list" id="renewalsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="admin-renewals.js"></script>
+</body>
+</html>
