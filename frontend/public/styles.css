@@ -1083,6 +1083,137 @@ body {
     flex: 1;
 }
 
+.renewal-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+}
+
+.renewal-tab {
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #374151;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.renewal-tab.is-active {
+    background: var(--primary-green);
+    color: #ffffff;
+    border-color: var(--primary-green);
+}
+
+.tenant-quantity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.tenant-quantity-card {
+    background: #ffffff;
+    border: 1px solid rgba(0, 200, 83, 0.12);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.tenant-quantity-card label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.tenant-quantity-card input[type="number"] {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid var(--border-gray);
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.tenant-qty-price {
+    margin-top: 10px;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.tenant-vehicle-group {
+    background: #ffffff;
+    border: 1px solid rgba(0, 200, 83, 0.12);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.tenant-vehicle-group__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.tenant-vehicle-group__header h3 {
+    font-size: 18px;
+    color: var(--text-dark);
+}
+
+.tenant-vehicle-group__count {
+    color: var(--text-gray);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.tenant-vehicle-inputs {
+    display: grid;
+    gap: 12px;
+}
+
+.tenant-empty-note {
+    color: var(--text-gray);
+    font-size: 14px;
+}
+
+.tenant-vehicle-input-row {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+}
+
+.tenant-vehicle-input-row input {
+    padding: 12px 15px;
+    border: 2px solid var(--border-gray);
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.tenant-pricing-summary {
+    display: grid;
+    gap: 12px;
+    background: #ffffff;
+    border: 1px solid rgba(0, 200, 83, 0.12);
+    border-radius: 16px;
+    padding: 18px;
+}
+
+.tenant-pricing-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 15px;
+}
+
+.tenant-pricing-row--grand {
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 18px;
+    font-weight: 800;
+}
+
 .renewal-type-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -1873,7 +2004,20 @@ footer {
         flex-direction: column;
     }
 
+    .renewal-tabs {
+        width: 100%;
+    }
+
+    .renewal-tab {
+        width: 100%;
+        justify-content: center;
+    }
+
     .renewal-plate-item {
+        grid-template-columns: 1fr;
+    }
+
+    .tenant-vehicle-input-row {
         grid-template-columns: 1fr;
     }
 

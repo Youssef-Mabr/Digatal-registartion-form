@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant Renewal</title>
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="stylesheet" href="styles.css">
+    <style>html,body{background:#F5F5F5;margin:0;padding:0;}input:invalid,input:required{box-shadow:none!important;outline:none!important;}</style>
+</head>
+<body>
+    <div class="page">
+        <nav class="navbar">
+            <div class="container">
+                <div class="logo" onclick="window.location.href='index.html'" style="cursor:pointer;">
+                    <span class="logo-text">Hi<span class="logo-highlight">speedcity</span></span>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="form-container">
+                <div class="form-header">
+                    <h1 data-testid="tenant-renewal-title">Tenant Renewal</h1>
+                    <p class="form-note">Enter the company renewal details and the vehicle lists for each parking category.</p>
+                </div>
+
+                <form id="tenantRenewalForm" novalidate>
+                    <div class="form-section">
+                        <h2>Company Information</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="companyName">Company Name *</label>
+                                <input type="text" id="companyName" required maxlength="120" placeholder="Enter company name">
+                            </div>
+                            <div class="form-group">
+                                <label for="contactPerson">Contact Person *</label>
+                                <input type="text" id="contactPerson" required maxlength="120" placeholder="Enter contact person">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tenantEmail">Email *</label>
+                                <input type="email" id="tenantEmail" required maxlength="120" placeholder="Enter email address">
+                            </div>
+                            <div class="form-group">
+                                <label for="tenantPhoneNumber">Phone Number *</label>
+                                <input type="tel" id="tenantPhoneNumber" required maxlength="20" placeholder="Enter phone number">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label for="tenantRenewalMonthNote">Renewal Month / Payment Note *</label>
+                                <input type="text" id="tenantRenewalMonthNote" required maxlength="120" placeholder="Example: July 2026">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2>Parking Quantities</h2>
+                        <div class="tenant-quantity-grid" id="tenantQuantityGrid"></div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2>Vehicle Lists</h2>
+                        <div id="tenantVehicleGroups"></div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2>Pricing Breakdown</h2>
+                        <div class="tenant-pricing-summary" id="tenantPricingSummary"></div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2>Payment</h2>
+                        <div class="qr-section">
+                            <h2>Scan QR Code to Pay</h2>
+                            <div class="qr-code">
+                                <img src="https://customer-assets.emergentagent.com/job_smart-parking-reg/artifacts/s7fu0xpl_WhatsApp%20Image%202026-05-20%20at%2012.39.48.jpg" alt="DuitNow QR Code" style="max-width:300px;width:100%;height:auto;display:block;">
+                            </div>
+                            <p class="qr-instruction">Scan the DuitNow QR Code and complete payment</p>
+                        </div>
+
+                        <div class="upload-section">
+                            <h2>Upload Payment Receipt *</h2>
+                            <p class="upload-instructions" style="margin:0 0 12px 0;color:#374151;font-size:14px;line-height:1.5;">
+                                Please upload payment receipt in <strong>JPG, JPEG, PNG or PDF</strong> format only.<br>
+                                <span style="color:#6b7280;">Maximum file size: 5MB.</span>
+                            </p>
+                            <div class="upload-area" id="tenantUploadArea">
+                                <input type="file" id="tenantReceiptUpload" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style="display:none;">
+                                <div class="upload-placeholder" id="tenantUploadPlaceholder">
+                                    <div class="upload-icon">📤</div>
+                                    <p>Click to upload payment receipt</p>
+                                    <p class="upload-note">Accepted: JPG, JPEG, PNG, PDF (Max 5MB)</p>
+                                </div>
+                                <div class="upload-preview" id="tenantUploadPreview" style="display:none;">
+                                    <img id="tenantPreviewImage" alt="Receipt preview">
+                                    <button type="button" class="btn-remove" id="tenantRemoveImage">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="window.location.href='renewal-type.html'">Back</button>
+                        <button type="submit" class="btn btn-primary" id="submitTenantRenewalBtn">Submit Renewal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="renewal-tenant.js"></script>
+</body>
+</html>

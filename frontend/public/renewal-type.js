@@ -1,10 +1,16 @@
 function selectRenewalType(type) {
-    if (type !== 'individual') {
+    if (type === 'individual') {
+        sessionStorage.removeItem('currentRenewalDraft');
+        sessionStorage.removeItem('lastRenewalSubmission');
+        sessionStorage.setItem('renewalType', 'Individual');
+        window.location.href = 'renewal-individual.html';
         return;
     }
 
-    sessionStorage.removeItem('currentRenewalDraft');
-    sessionStorage.removeItem('lastRenewalSubmission');
-    sessionStorage.setItem('renewalType', 'Individual');
-    window.location.href = 'renewal-individual.html';
+    if (type === 'tenant') {
+        sessionStorage.removeItem('currentRenewalDraft');
+        sessionStorage.removeItem('lastRenewalSubmission');
+        sessionStorage.setItem('renewalType', 'Tenant');
+        window.location.href = 'renewal-tenant.html';
+    }
 }

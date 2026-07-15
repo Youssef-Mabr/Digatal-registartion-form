@@ -1,10 +1,21 @@
 let allRenewals = [];
+let selectedRenewalTab = 'all';
 
 window.addEventListener('DOMContentLoaded', function() {
     const filter = document.getElementById('renewalStatusFilter');
     if (filter) {
         filter.addEventListener('change', renderRenewals);
     }
+
+    document.querySelectorAll('[data-renewal-tab]').forEach(tab => {
+        tab.addEventListener('click', function() {
+            selectedRenewalTab = this.dataset.renewalTab || 'all';
+            document.querySelectorAll('[data-renewal-tab]').forEach(button => {
+                button.classList.toggle('is-active', button === this);
+            });
+            renderRenewals();
+        });
+    });
 
     loadRenewals();
 });
@@ -55,7 +66,11 @@ function renderRenewals() {
     }
 
     const selectedStatus = filter ? filter.value : 'all';
-    const filtered = allRenewals.filter(renewal => selectedStatus === 'all' || renewal.status === selectedStatus);
+    const filtered = allRenewals.filter(renewal => {
+        const matchesStatus = selectedStatus === 'all' || renewal.status === selectedStatus;
+        const matchesType = selectedRenewalTab === 'all' || renewal.renewalType === selectedRenewalTab;
+        return matchesStatus && matchesType;
+    });
 
     if (badge) {
         badge.textContent = `${filtered.length} of ${allRenewals.length} renewal requests`;
@@ -82,13 +97,16 @@ function renderRenewals() {
 
         const plateList = Array.isArray(renewal.vehiclePlateNumbers) ? renewal.vehiclePlateNumbers.join(', ') : '-';
         const submittedAt = formatDateTime(renewal.submittedAt);
+        const isTenant = renewal.renewalType === 'Tenant';
+        const totalAmount = isTenant ? (renewal.pricingBreakdown && renewal.pricingBreakdown.grandTotal) || 0 : 0;
 
         card.innerHTML = `
             <div class="application-header">
                 <div class="applicant-info">
-                    <h3>${escapeHtml(renewal.fullName || '-')}</h3>
-                    <p class="vehicle-number">Plates: ${escapeHtml(plateList)}</p>
+                    <h3>${escapeHtml(isTenant ? (renewal.companyName || '-') : (renewal.fullName || '-'))}</h3>
+                    <p class="vehicle-number">${escapeHtml(isTenant ? `Contact: ${renewal.contactPerson || '-'}` : `Plates: ${plateList}`)}</p>
                     <p class="vehicle-number">Renewal Month: ${escapeHtml(renewal.renewalMonthNote || '-')}</p>
+                    ${isTenant ? `<p class="vehicle-number">Total Amount: RM ${escapeHtml(String(totalAmount))}</p>` : ''}
                 </div>
                 <span class="status-badge ${(renewal.status || '').toLowerCase()}">${escapeHtml(renewal.status || 'Pending')}</span>
             </div>

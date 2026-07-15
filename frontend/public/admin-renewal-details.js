@@ -43,6 +43,48 @@ function formatDateTime(value) {
 function renderRenewalDetails(renewal) {
     const detailsContainer = document.getElementById('renewalDetailsContainer');
     const plateNumbers = Array.isArray(renewal.vehiclePlateNumbers) ? renewal.vehiclePlateNumbers : [];
+    const isTenant = renewal.renewalType === 'Tenant';
+    const quantityEntries = renewal.parkingQuantities || {};
+    const pricingBreakdown = renewal.pricingBreakdown || {};
+
+    const tenantVehicleHtml = isTenant ? `
+        <div class="details-section">
+            <h2>Company Information</h2>
+            <div class="detail-row"><span class="detail-label">Company Name:</span><span class="detail-value">${escapeHtml(renewal.companyName || '-')}</span></div>
+            <div class="detail-row"><span class="detail-label">Contact Person:</span><span class="detail-value">${escapeHtml(renewal.contactPerson || '-')}</span></div>
+            <div class="detail-row"><span class="detail-label">Email:</span><span class="detail-value">${escapeHtml(renewal.email || '-')}</span></div>
+            <div class="detail-row"><span class="detail-label">Phone Number:</span><span class="detail-value">${escapeHtml(renewal.phoneNumber || '-')}</span></div>
+        </div>
+
+        <div class="details-section">
+            <h2>Parking Quantities</h2>
+            <div class="detail-row"><span class="detail-label">Non-Reserved:</span><span class="detail-value">${escapeHtml(String(quantityEntries.non_reserved || 0))}</span></div>
+            <div class="detail-row"><span class="detail-label">Reserved:</span><span class="detail-value">${escapeHtml(String(quantityEntries.reserved || 0))}</span></div>
+            <div class="detail-row"><span class="detail-label">Premium:</span><span class="detail-value">${escapeHtml(String(quantityEntries.premium || 0))}</span></div>
+        </div>
+
+        <div class="details-section">
+            <h2>Vehicle Lists</h2>
+            <div class="detail-row"><span class="detail-label">Non-Reserved:</span><span class="detail-value">${escapeHtml(((renewal.vehiclePlateNumbers && renewal.vehiclePlateNumbers.non_reserved) || []).join(', ') || '-')}</span></div>
+            <div class="detail-row"><span class="detail-label">Reserved:</span><span class="detail-value">${escapeHtml(((renewal.vehiclePlateNumbers && renewal.vehiclePlateNumbers.reserved) || []).join(', ') || '-')}</span></div>
+            <div class="detail-row"><span class="detail-label">Premium:</span><span class="detail-value">${escapeHtml(((renewal.vehiclePlateNumbers && renewal.vehiclePlateNumbers.premium) || []).join(', ') || '-')}</span></div>
+        </div>
+
+        <div class="details-section">
+            <h2>Pricing Breakdown</h2>
+            <div class="detail-row"><span class="detail-label">Non-Reserved Total:</span><span class="detail-value">RM ${escapeHtml(String(pricingBreakdown.non_reservedTotal || 0))}</span></div>
+            <div class="detail-row"><span class="detail-label">Reserved Total:</span><span class="detail-value">RM ${escapeHtml(String(pricingBreakdown.reservedTotal || 0))}</span></div>
+            <div class="detail-row"><span class="detail-label">Premium Total:</span><span class="detail-value">RM ${escapeHtml(String(pricingBreakdown.premiumTotal || 0))}</span></div>
+            <div class="detail-row"><span class="detail-label">Grand Total:</span><span class="detail-value"><strong>RM ${escapeHtml(String(pricingBreakdown.grandTotal || 0))}</strong></span></div>
+        </div>
+    ` : `
+        <div class="details-section">
+            <h2>Applicant Information</h2>
+            <div class="detail-row"><span class="detail-label">Full Name:</span><span class="detail-value">${escapeHtml(renewal.fullName || '-')}</span></div>
+            <div class="detail-row"><span class="detail-label">Vehicle Plate Numbers:</span><span class="detail-value">${escapeHtml(plateNumbers.length ? plateNumbers.join(', ') : '-')}</span></div>
+            <div class="detail-row"><span class="detail-label">Renewal Month / Payment Note:</span><span class="detail-value">${escapeHtml(renewal.renewalMonthNote || '-')}</span></div>
+        </div>
+    `;
 
     detailsContainer.innerHTML = `
         <div class="details-section">
@@ -53,12 +95,7 @@ function renderRenewalDetails(renewal) {
             <div class="detail-row"><span class="detail-label">Status:</span><span class="status-badge ${(renewal.status || '').toLowerCase()}">${escapeHtml(renewal.status || 'Pending')}</span></div>
         </div>
 
-        <div class="details-section">
-            <h2>Parker Information</h2>
-            <div class="detail-row"><span class="detail-label">Full Name:</span><span class="detail-value">${escapeHtml(renewal.fullName || '-')}</span></div>
-            <div class="detail-row"><span class="detail-label">Vehicle Plate Numbers:</span><span class="detail-value">${escapeHtml(plateNumbers.length ? plateNumbers.join(', ') : '-')}</span></div>
-            <div class="detail-row"><span class="detail-label">Renewal Month / Payment Note:</span><span class="detail-value">${escapeHtml(renewal.renewalMonthNote || '-')}</span></div>
-        </div>
+        ${tenantVehicleHtml}
 
         <div class="details-section">
             <h2>Payment Receipt</h2>

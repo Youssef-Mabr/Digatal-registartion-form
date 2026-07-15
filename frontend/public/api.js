@@ -45,9 +45,36 @@ function normalizeParkingAvailability(items) {
     return availabilityMap;
 }
 
+function normalizeParkingPrices(items) {
+    const priceMap = {};
+    (Array.isArray(items) ? items : []).forEach(item => {
+        if (!item) {
+            return;
+        }
+
+        const key = item.key || getParkingTypeKey(item.parkingType);
+        if (!key) {
+            return;
+        }
+
+        priceMap[key] = {
+            key,
+            parkingType: item.parkingType || '',
+            label: item.label || getParkingTypeLabel(item.parkingType),
+            monthlyPrice: Number(item.monthlyPrice || 0),
+        };
+    });
+    return priceMap;
+}
+
 async function fetchParkingAvailability(options = {}) {
     const response = await requestJson('/parking-availability', options);
     return Array.isArray(response.parkingAvailability) ? response.parkingAvailability : [];
+}
+
+async function fetchParkingPrices(options = {}) {
+    const response = await requestJson('/parking-prices', options);
+    return Array.isArray(response.parkingPrices) ? response.parkingPrices : [];
 }
 
 function ensureFeedbackShell() {

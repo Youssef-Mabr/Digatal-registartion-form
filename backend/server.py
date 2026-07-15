@@ -124,6 +124,13 @@ class ParkingAvailabilityUpdateRequest(BaseModel):
     available: bool
 
 
+class ParkingPrice(BaseModel):
+    key: str
+    parkingType: str
+    label: str
+    monthlyPrice: int
+
+
 PARKING_TYPE_SETTINGS = [
     {
         'key': 'non_reserved',
@@ -144,6 +151,11 @@ PARKING_TYPE_SETTINGS = [
 
 PARKING_TYPE_LOOKUP = {item['parkingType']: item for item in PARKING_TYPE_SETTINGS}
 PARKING_KEY_LOOKUP = {item['key']: item for item in PARKING_TYPE_SETTINGS}
+PARKING_PRICES = {
+    'non_reserved': 159,
+    'reserved': 212,
+    'premium': 318,
+}
 
 
 def parking_type_to_key(parking_type: str | None) -> str | None:
@@ -198,6 +210,18 @@ async def get_parking_availability_records() -> list[dict[str, Any]]:
 
 async def get_parking_availability_map() -> dict[str, dict[str, Any]]:
     return {record['key']: record for record in await get_parking_availability_records()}
+
+
+def get_parking_price_records() -> list[dict[str, Any]]:
+    return [
+        {
+            'key': config['key'],
+            'parkingType': config['parkingType'],
+            'label': config['label'],
+            'monthlyPrice': PARKING_PRICES.get(config['key'], 0),
+        }
+        for config in PARKING_TYPE_SETTINGS
+    ]
 
 
 def now_utc() -> datetime:
@@ -692,6 +716,11 @@ async def get_public_parking_availability():
     return {'parkingAvailability': await get_parking_availability_records()}
 
 
+@api_router.get('/parking-prices')
+async def get_public_parking_prices():
+    return {'parkingPrices': get_parking_price_records()}
+
+
 @api_router.get('/admin/parking-availability')
 async def get_admin_parking_availability(_: str = Depends(require_admin)):
     return {'parkingAvailability': await get_parking_availability_records()}
@@ -799,6 +828,37 @@ async def upload_renewal_receipt(file: UploadFile) -> str:
     return result['secure_url']
 
 
+def normalize_plate_numbers(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    cleaned = []
+    for value in values:
+        plate = str(value or '').strip().upper()
+        if plate:
+            cleaned.append(plate)
+    return list(dict.fromkeys(cleaned))
+
+
+def normalize_tenant_plate_groups(values: Any) -> dict[str, list[str]]:
+    if not isinstance(values, dict):
+        return {}
+    grouped: dict[str, list[str]] = {}
+    for key in ('non_reserved', 'reserved', 'premium'):
+        grouped[key] = normalize_plate_numbers(values.get(key, []))
+    return grouped
+
+
+def calculate_tenant_total(quantities: dict[str, int], price_records: list[dict[str, Any]]) -> dict[str, int]:
+    price_map = {item['key']: int(item.get('monthlyPrice', 0)) for item in price_records}
+    totals = {
+        'non_reservedTotal': int(quantities.get('non_reserved', 0)) * price_map.get('non_reserved', 0),
+        'reservedTotal': int(quantities.get('reserved', 0)) * price_map.get('reserved', 0),
+        'premiumTotal': int(quantities.get('premium', 0)) * price_map.get('premium', 0),
+    }
+    totals['grandTotal'] = totals['non_reservedTotal'] + totals['reservedTotal'] + totals['premiumTotal']
+    return totals
+
+
 async def next_renewal_reference() -> str:
     year = datetime.now(timezone.utc).year
     counter_id = f'renewals-{year}'
@@ -869,6 +929,88 @@ async def create_individual_renewal(
         'fullName': full_name,
         'vehiclePlateNumbers': unique_plates,
         'renewalMonthNote': month_note,
+        'receiptUrl': receipt_url,
+        'status': STATUS_PENDING,
+        'submittedAt': submitted_at,
+        'updatedAt': submitted_at,
+    }
+
+    await db.renewals.insert_one(renewal_doc)
+
+    return RenewalCreateResponse(
+        message='Renewal request submitted successfully',
+        renewalReference=renewal_reference,
+        status=STATUS_PENDING,
+        submittedAt=submitted_at,
+    )
+
+
+@api_router.post('/renewals/tenant', response_model=RenewalCreateResponse)
+async def create_tenant_renewal(
+    renewalData: str = Form(...),
+    receipt: Optional[UploadFile] = File(None),
+):
+    import json
+
+    try:
+        payload = json.loads(renewalData)
+    except Exception:
+        raise HTTPException(status_code=400, detail='Invalid renewal data')
+
+    renewal_type = str(payload.get('renewalType') or '').strip() or 'Tenant'
+    if renewal_type != 'Tenant':
+        raise HTTPException(status_code=400, detail='Only Tenant renewal is supported at this time')
+
+    company_name = str(payload.get('companyName') or '').strip()
+    contact_person = str(payload.get('contactPerson') or '').strip()
+    email = str(payload.get('email') or '').strip()
+    phone_number = str(payload.get('phoneNumber') or '').strip()
+    month_note = str(payload.get('renewalMonthNote') or '').strip()
+    if not all([company_name, contact_person, email, phone_number, month_note]):
+        raise HTTPException(status_code=400, detail='All company and contact fields are required')
+
+    quantities_raw = payload.get('parkingQuantities')
+    if not isinstance(quantities_raw, dict):
+        raise HTTPException(status_code=400, detail='Parking quantities are required')
+
+    try:
+        quantities = {
+            'non_reserved': max(0, int(quantities_raw.get('non_reserved', 0) or 0)),
+            'reserved': max(0, int(quantities_raw.get('reserved', 0) or 0)),
+            'premium': max(0, int(quantities_raw.get('premium', 0) or 0)),
+        }
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail='Parking quantities must be whole numbers')
+
+    plate_groups = normalize_tenant_plate_groups(payload.get('vehiclePlateNumbers'))
+    for key, quantity in quantities.items():
+        if quantity > 0 and len(plate_groups.get(key, [])) != quantity:
+            raise HTTPException(status_code=400, detail=f'{key.replace("_", " ").title()} vehicle plate list must match the selected quantity')
+
+    price_records = get_parking_price_records()
+    totals = calculate_tenant_total(quantities, price_records)
+
+    if receipt is None:
+        raise HTTPException(status_code=400, detail='Payment receipt is required')
+
+    receipt_url = await upload_renewal_receipt(receipt)
+    submitted_at = datetime.now(timezone.utc)
+    renewal_reference = await next_renewal_reference()
+
+    renewal_doc = {
+        'renewalReference': renewal_reference,
+        'renewalType': 'Tenant',
+        'companyName': company_name,
+        'contactPerson': contact_person,
+        'email': email,
+        'phoneNumber': phone_number,
+        'renewalMonthNote': month_note,
+        'parkingQuantities': quantities,
+        'vehiclePlateNumbers': plate_groups,
+        'pricingBreakdown': {
+            'parkingPrices': {item['key']: item['monthlyPrice'] for item in price_records},
+            **totals,
+        },
         'receiptUrl': receipt_url,
         'status': STATUS_PENDING,
         'submittedAt': submitted_at,
