@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parking Type Management</title>
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="stylesheet" href="styles.css">
+    <style>html,body{background:#F5F5F5;margin:0;padding:0;}input:invalid,input:required{box-shadow:none!important;outline:none!important;}</style>
+</head>
+<body>
+    <div class="page admin-page">
+        <nav class="navbar">
+            <div class="container">
+                <div class="logo" onclick="window.location.href='admin-dashboard.html'" style="cursor:pointer;">
+                    <span class="logo-text">Hi<span class="logo-highlight">speedcity</span></span>
+                    <span class="admin-badge">Admin</span>
+                </div>
+                <a href="index.html" class="logout-link" data-testid="logout-link">Logout</a>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="parking-management-page">
+                <div class="applications-header">
+                    <div>
+                        <h1 data-testid="parking-management-title">Parking Type Management</h1>
+                        <p class="parking-management-subtitle">Manage which parking types are available to customers in real time.</p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="window.location.href='admin-dashboard.html'" data-testid="back-dashboard-btn">Back to Dashboard</button>
+                </div>
+
+                <div class="parking-control-panel parking-control-panel--standalone" data-testid="parking-control-panel">
+                    <div class="parking-control-grid" id="parkingManagementGrid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="parking-control.js"></script>
+    <script src="admin-parking-types.js"></script>
+</body>
+</html>

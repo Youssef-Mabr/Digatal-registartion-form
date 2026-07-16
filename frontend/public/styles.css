@@ -829,6 +829,20 @@ body {
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
 }
 
+.parking-control-panel--standalone {
+    margin-top: 0;
+}
+
+.parking-management-page {
+    padding: 40px 0;
+}
+
+.parking-management-subtitle {
+    margin-top: 8px;
+    color: var(--text-gray);
+    font-size: 15px;
+}
+
 .parking-control-panel__header {
     display: flex;
     align-items: flex-start;

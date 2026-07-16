@@ -39,8 +39,6 @@ const ADMIN_APP_TYPE_BADGE_COLORS = {
 };
 
 let allApplications = [];
-let parkingAvailabilityMap = {};
-let parkingAvailabilityRefreshTimer = null;
 
 window.addEventListener('DOMContentLoaded', function() {
     const applicationsList = document.getElementById('applicationsList');
@@ -48,8 +46,6 @@ window.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('applicationsSearch');
 
     loadApplications();
-    loadParkingAvailability();
-    startParkingAvailabilityPolling();
 
     if (filter) {
         filter.addEventListener('change', renderApplications);
@@ -58,8 +54,6 @@ window.addEventListener('DOMContentLoaded', function() {
     if (searchInput) {
         searchInput.addEventListener('input', renderApplications);
     }
-
-    window.addEventListener('beforeunload', stopParkingAvailabilityPolling);
 });
 
 async function loadApplications() {
@@ -72,113 +66,6 @@ async function loadApplications() {
         showAppMessage(error.message, 'error', 'Applications unavailable');
         if (applicationsList) {
             applicationsList.innerHTML = `<div style="text-align:center;padding:40px;color:#b91c1c;">${escapeHtml(error.message)}</div>`;
-        }
-    }
-}
-
-async function loadParkingAvailability() {
-    try {
-        const result = await requestJson('/admin/parking-availability', {
-            loadingMessage: 'Loading parking control panel...',
-            skipLoading: true,
-        });
-        parkingAvailabilityMap = normalizeParkingAvailability(result.parkingAvailability || []);
-        renderParkingControlPanel();
-    } catch (error) {
-        const panel = document.getElementById('parkingControlGrid');
-        if (panel) {
-            panel.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:#b91c1c;">${escapeHtml(error.message)}</div>`;
-        }
-    }
-}
-
-function startParkingAvailabilityPolling() {
-    stopParkingAvailabilityPolling();
-    parkingAvailabilityRefreshTimer = window.setInterval(() => {
-        loadParkingAvailability();
-    }, 15000);
-}
-
-function stopParkingAvailabilityPolling() {
-    if (parkingAvailabilityRefreshTimer) {
-        window.clearInterval(parkingAvailabilityRefreshTimer);
-        parkingAvailabilityRefreshTimer = null;
-    }
-}
-
-function renderParkingControlPanel() {
-    const panel = document.getElementById('parkingControlGrid');
-    if (!panel) {
-        return;
-    }
-
-    panel.innerHTML = '';
-
-    Object.values(PARKING_CONTROL_META).forEach(meta => {
-        const availability = parkingAvailabilityMap[meta.key] || { available: true };
-        const isAvailable = availability.available !== false;
-
-        const card = document.createElement('div');
-        card.className = `parking-control-card ${isAvailable ? 'is-available' : 'is-sold-out'}`;
-
-        card.innerHTML = `
-            <div class="parking-control-card__top">
-                <div>
-                    <span class="parking-control-card__eyebrow">Parking Type</span>
-                    <h3>${escapeHtml(meta.label)}</h3>
-                </div>
-                <span class="parking-control-card__status ${isAvailable ? 'is-available' : 'is-sold-out'}">${isAvailable ? 'Available' : 'Sold Out'}</span>
-            </div>
-            <div class="parking-control-card__pricing">
-                <span class="parking-control-card__price">${escapeHtml(meta.monthlyPrice)}</span>
-                <span class="parking-control-card__period">per month</span>
-            </div>
-            <p class="parking-control-card__description">${escapeHtml(meta.description)}</p>
-            <div class="parking-control-card__footer">
-                <div class="parking-control-card__toggle-copy">
-                    <span class="parking-control-card__toggle-label">Toggle availability</span>
-                    <strong>${isAvailable ? 'ON' : 'OFF'}</strong>
-                </div>
-                <button type="button" class="parking-toggle-button ${isAvailable ? 'is-on' : 'is-off'}" data-toggle-parking="${meta.key}" aria-pressed="${isAvailable ? 'true' : 'false'}">${isAvailable ? 'ON' : 'OFF'}</button>
-            </div>
-        `;
-
-        const toggleButton = card.querySelector('[data-toggle-parking]');
-        toggleButton.addEventListener('click', () => {
-            updateParkingAvailability(meta.key, !isAvailable);
-        });
-
-        panel.appendChild(card);
-    });
-}
-
-async function updateParkingAvailability(parkingKey, nextAvailable) {
-    const meta = PARKING_CONTROL_META[parkingKey];
-    if (!meta) {
-        return;
-    }
-
-    const toggleButton = document.querySelector(`[data-toggle-parking="${parkingKey}"]`);
-    if (toggleButton) {
-        toggleButton.disabled = true;
-    }
-
-    try {
-        const result = await requestJson(`/admin/parking-availability/${encodeURIComponent(parkingKey)}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ available: nextAvailable }),
-            loadingMessage: nextAvailable ? `Marking ${meta.label} available...` : `Marking ${meta.label} sold out...`,
-        });
-
-        parkingAvailabilityMap = normalizeParkingAvailability(result.parkingAvailability || []);
-        renderParkingControlPanel();
-        showAppMessage(`${meta.label} is now ${nextAvailable ? 'available' : 'sold out'}.`, 'success', 'Parking availability updated');
-    } catch (error) {
-        showAppMessage(error.message, 'error', 'Unable to update parking availability');
-    } finally {
-        if (toggleButton) {
-            toggleButton.disabled = false;
         }
     }
 }
