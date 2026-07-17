@@ -41,16 +41,6 @@ async function loadRenewalSubmission() {
         }
     }
 
-    if (!submission && queryParams.renewalReference) {
-        try {
-            submission = await requestJson(`/renewals/reference/${encodeURIComponent(queryParams.renewalReference)}`, {
-                skipLoading: true,
-            });
-        } catch (error) {
-            submission = null;
-        }
-    }
-
     return Object.assign({}, submission || {}, queryParams);
 }
 
