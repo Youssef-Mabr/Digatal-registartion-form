@@ -201,7 +201,12 @@ async function submitRenewalRequest(event) {
 
         const fullSubmission = Object.assign({}, payload, result);
         sessionStorage.setItem('lastRenewalSubmission', JSON.stringify(fullSubmission));
-        window.location.href = 'renewal-success.html';
+        const params = new URLSearchParams({
+            renewalReference: result.renewalReference || '',
+            renewalType: 'Individual',
+            submittedAt: result.submittedAt || '',
+        });
+        window.location.href = `renewal-success.html?${params.toString()}`;
     } catch (error) {
         showAppMessage(error.message, 'error', 'Submission failed');
         setButtonLoading(submitButton, false);

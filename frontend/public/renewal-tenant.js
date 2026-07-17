@@ -257,8 +257,14 @@ async function submitTenantRenewal(event) {
     setButtonLoading(submitButton, true, 'Submitting...');
     try {
         const result = await requestFormData('/renewals/tenant', formData, { loadingMessage: 'Submitting tenant renewal...' });
-        sessionStorage.setItem('lastRenewalSubmission', JSON.stringify(Object.assign({}, payload, result)));
-        window.location.href = 'renewal-success.html';
+        const fullSubmission = Object.assign({}, payload, result);
+        sessionStorage.setItem('lastRenewalSubmission', JSON.stringify(fullSubmission));
+        const params = new URLSearchParams({
+            renewalReference: result.renewalReference || '',
+            renewalType: 'Tenant',
+            submittedAt: result.submittedAt || '',
+        });
+        window.location.href = `renewal-success.html?${params.toString()}`;
     } catch (error) {
         showAppMessage(error.message, 'error', 'Submission failed');
         setButtonLoading(submitButton, false);

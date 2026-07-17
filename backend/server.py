@@ -1062,6 +1062,15 @@ async def update_renewal_status(
         raise HTTPException(status_code=404, detail='Renewal request not found')
 
     return {'message': 'Renewal status updated', 'renewal': serialize_doc(result)}
+
+
+@api_router.get('/renewals/reference/{renewal_reference}')
+async def get_public_renewal_by_reference(renewal_reference: str):
+    renewal = await db.renewals.find_one({'renewalReference': renewal_reference})
+    if not renewal:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+    return serialize_doc(renewal)
+
 @api_router.post('/applications', response_model=ApplicationCreateResponse)
 async def create_application(
     applicationData: str = Form(...),
