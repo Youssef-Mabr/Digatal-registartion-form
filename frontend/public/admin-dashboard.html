@@ -16,9 +16,30 @@
                     <span class="logo-text">Hi<span class="logo-highlight">speedcity</span></span>
                     <span class="admin-badge">Admin</span>
                 </div>
-                <a href="index.html" class="logout-link" data-testid="logout-link">Logout</a>
+                <button type="button" class="admin-menu-button" id="adminMenuButton" aria-controls="adminDashboardDrawer" aria-expanded="false" data-testid="admin-menu-button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
             </div>
         </nav>
+
+        <div class="admin-drawer-overlay" id="adminDrawerOverlay" hidden></div>
+        <aside class="admin-drawer" id="adminDashboardDrawer" aria-hidden="true" aria-label="Admin dashboard menu">
+            <div class="admin-drawer__header">
+                <div>
+                    <p class="admin-drawer__eyebrow">Admin Menu</p>
+                    <h2>Quick Actions</h2>
+                </div>
+                <button type="button" class="admin-drawer__close" id="adminDrawerClose" aria-label="Close menu">×</button>
+            </div>
+            <div class="admin-drawer__body">
+                <button type="button" class="admin-drawer__action is-primary" onclick="window.location.href='admin-applications.html'" data-testid="view-applications-btn">View Applications</button>
+                <button type="button" class="admin-drawer__action" onclick="window.location.href='admin-renewals.html'" data-testid="view-renewals-btn">Renewal Management</button>
+                <button type="button" class="admin-drawer__action" onclick="window.location.href='admin-parking-types.html'" data-testid="view-parking-types-btn">Parking Type Management</button>
+                <a href="index.html" class="admin-drawer__action is-logout" data-testid="logout-link">Logout</a>
+            </div>
+        </aside>
 
         <div class="container">
             <div class="dashboard">
@@ -60,12 +81,6 @@
                             <p>Renewal Requests</p>
                         </div>
                     </div>
-                </div>
-
-                <div class="dashboard-actions">
-                    <button class="btn btn-primary" onclick="window.location.href='admin-applications.html'" data-testid="view-applications-btn">View All Applications</button>
-                    <button class="btn btn-secondary" onclick="window.location.href='admin-renewals.html'" data-testid="view-renewals-btn">Renewal Management</button>
-                    <button class="btn btn-secondary" onclick="window.location.href='admin-parking-types.html'" data-testid="view-parking-types-btn">Parking Type Management</button>
                 </div>
             </div>
         </div>
