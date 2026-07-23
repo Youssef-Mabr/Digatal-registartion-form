@@ -481,6 +481,21 @@ body.has-open-drawer {
     font-size: 14px;
 }
 
+.payment-note {
+    margin: 18px 0 0;
+    padding: 14px 16px;
+    border-left: 4px solid var(--accent-yellow);
+    background: rgba(255, 214, 0, 0.12);
+    color: #5f4c00;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.payment-note strong {
+    color: var(--text-dark);
+}
+
 .form-section {
     margin-bottom: 35px;
 }
