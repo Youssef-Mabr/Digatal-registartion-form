@@ -391,8 +391,14 @@ async def admin_me(current_admin: dict[str, Any] = Depends(get_current_admin)) -
 
 @app.put("/api/admin/change-password")
 async def change_password(request: ChangePasswordRequest, current_admin: dict[str, Any] = Depends(get_current_admin)) -> dict[str, str]:
+    if not request.currentPassword.strip() or not request.newPassword.strip() or not request.confirmNewPassword.strip():
+        raise HTTPException(status_code=400, detail="All password fields are required")
+
     if request.newPassword != request.confirmNewPassword:
         raise HTTPException(status_code=400, detail="New password and confirmation do not match")
+
+    if request.currentPassword == request.newPassword:
+        raise HTTPException(status_code=400, detail="New password must be different from the current password")
 
     admin = await db.admins.find_one({"_id": current_admin["_id"]})
     if not admin:
@@ -674,8 +680,14 @@ async def admin_me(username: str = Depends(require_admin)):
 
 @api_router.put('/admin/change-password')
 async def change_password(payload: ChangePasswordRequest, username: str = Depends(require_admin)):
+    if not payload.currentPassword.strip() or not payload.newPassword.strip() or not payload.confirmNewPassword.strip():
+        raise HTTPException(status_code=400, detail='All password fields are required')
+
     if payload.newPassword != payload.confirmNewPassword:
         raise HTTPException(status_code=400, detail='New password and confirmation do not match')
+
+    if payload.currentPassword == payload.newPassword:
+        raise HTTPException(status_code=400, detail='New password must be different from the current password')
 
     admin = await db.admins.find_one({'username': username})
     if not admin:
