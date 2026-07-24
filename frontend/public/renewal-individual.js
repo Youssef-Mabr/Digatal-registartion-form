@@ -88,11 +88,11 @@ function bindReceiptUpload() {
             return;
         }
 
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
         const fileName = (file.name || '').toLowerCase();
-        const extOk = /\.(jpg|jpeg|png|pdf)$/i.test(fileName);
+        const extOk = /\.(jpg|jpeg|png)$/i.test(fileName);
         if (!allowedTypes.includes(file.type) && !extOk) {
-            showAppMessage('Unsupported file format. Please upload JPG, JPEG, PNG or PDF only.', 'warning');
+            showAppMessage('Unsupported file format. Please upload JPG, JPEG or PNG only.', 'warning');
             receiptUpload.value = '';
             return;
         }
@@ -100,27 +100,8 @@ function bindReceiptUpload() {
         const reader = new FileReader();
         reader.onload = function(event) {
             uploadedRenewalReceipt = event.target.result;
-            if (file.type === 'application/pdf') {
-                previewImage.src = '';
-                previewImage.alt = `PDF receipt: ${file.name}`;
-                previewImage.style.display = 'none';
-                let pdfLabel = document.getElementById('pdfReceiptLabel');
-                if (!pdfLabel) {
-                    pdfLabel = document.createElement('div');
-                    pdfLabel.id = 'pdfReceiptLabel';
-                    pdfLabel.style.cssText = 'padding:20px;background:#f0fdf4;border-radius:8px;color:#166534;font-weight:600;text-align:center;';
-                    uploadPreview.insertBefore(pdfLabel, uploadPreview.firstChild);
-                }
-                pdfLabel.textContent = `📄 ${file.name}`;
-                pdfLabel.style.display = 'block';
-            } else {
-                const pdfLabel = document.getElementById('pdfReceiptLabel');
-                if (pdfLabel) {
-                    pdfLabel.style.display = 'none';
-                }
-                previewImage.src = event.target.result;
-                previewImage.style.display = '';
-            }
+            previewImage.src = event.target.result;
+            previewImage.style.display = '';
             uploadPlaceholder.style.display = 'none';
             uploadPreview.style.display = 'block';
         };
