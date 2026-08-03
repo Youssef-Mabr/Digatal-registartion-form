@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, TypeAdapter
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -588,6 +588,19 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 
+def normalize_email_address(raw_value: Any) -> str:
+    email = str(raw_value or '').strip()
+    if not email:
+        raise HTTPException(status_code=400, detail='Email address is required')
+
+    try:
+        validated_email = TypeAdapter(EmailStr).validate_python(email)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail='Invalid email address') from exc
+
+    return str(validated_email)
+
+
 def create_token(username: str) -> str:
     payload = {
         'sub': username,
@@ -624,6 +637,7 @@ class StatusUpdateRequest(BaseModel):
 class RenewalCreateResponse(BaseModel):
     message: str
     renewalReference: str
+    email: Optional[EmailStr] = None
     status: str
     submittedAt: datetime
 
@@ -906,6 +920,8 @@ async def create_individual_renewal(
     if not full_name:
         raise HTTPException(status_code=400, detail='Full Name is required')
 
+    email = normalize_email_address(payload.get('email'))
+
     month_note = str(payload.get('renewalMonthNote') or '').strip()
     if not month_note:
         raise HTTPException(status_code=400, detail='Renewal Month / Payment Note is required')
@@ -939,6 +955,7 @@ async def create_individual_renewal(
         'renewalReference': renewal_reference,
         'renewalType': 'Individual',
         'fullName': full_name,
+        'email': email,
         'vehiclePlateNumbers': unique_plates,
         'renewalMonthNote': month_note,
         'receiptUrl': receipt_url,
@@ -952,6 +969,7 @@ async def create_individual_renewal(
     return RenewalCreateResponse(
         message='Renewal request submitted successfully',
         renewalReference=renewal_reference,
+        email=email,
         status=STATUS_PENDING,
         submittedAt=submitted_at,
     )
@@ -975,7 +993,7 @@ async def create_tenant_renewal(
 
     company_name = str(payload.get('companyName') or '').strip()
     contact_person = str(payload.get('contactPerson') or '').strip()
-    email = str(payload.get('email') or '').strip()
+    email = normalize_email_address(payload.get('email'))
     phone_number = str(payload.get('phoneNumber') or '').strip()
     month_note = str(payload.get('renewalMonthNote') or '').strip()
     if not all([company_name, contact_person, email, phone_number, month_note]):
@@ -1034,6 +1052,7 @@ async def create_tenant_renewal(
     return RenewalCreateResponse(
         message='Renewal request submitted successfully',
         renewalReference=renewal_reference,
+        email=email,
         status=STATUS_PENDING,
         submittedAt=submitted_at,
     )

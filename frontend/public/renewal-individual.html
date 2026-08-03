@@ -37,6 +37,13 @@
 
                         <div class="form-row">
                             <div class="form-group full-width">
+                                <label for="email">Email Address *</label>
+                                <input type="email" id="email" required maxlength="120" placeholder="Enter email address" data-testid="renewal-email-input">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group full-width">
                                 <label>Existing Vehicle Plate Number(s) *</label>
                                 <div id="plateFields" class="renewal-plate-list"></div>
                                 <button type="button" class="btn btn-secondary renewal-add-plate" id="addPlateBtn" data-testid="renewal-add-plate">Add Plate</button>

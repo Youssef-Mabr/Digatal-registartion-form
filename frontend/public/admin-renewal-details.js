@@ -81,6 +81,7 @@ function renderRenewalDetails(renewal) {
         <div class="details-section">
             <h2>Applicant Information</h2>
             <div class="detail-row"><span class="detail-label">Full Name:</span><span class="detail-value">${escapeHtml(renewal.fullName || '-')}</span></div>
+            <div class="detail-row"><span class="detail-label">Email Address:</span><span class="detail-value">${escapeHtml(renewal.email || '-')}</span></div>
             <div class="detail-row"><span class="detail-label">Vehicle Plate Numbers:</span><span class="detail-value">${escapeHtml(plateNumbers.length ? plateNumbers.join(', ') : '-')}</span></div>
             <div class="detail-row"><span class="detail-label">Renewal Month / Payment Note:</span><span class="detail-value">${escapeHtml(renewal.renewalMonthNote || '-')}</span></div>
         </div>

@@ -131,6 +131,15 @@ function validateRenewalPayload(payload, file) {
         return 'Full Name is required.';
     }
 
+    if (!payload.email) {
+        return 'Email Address is required.';
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(payload.email)) {
+        return 'Please enter a valid email address.';
+    }
+
     if (!payload.vehiclePlateNumbers.length) {
         return 'At least one vehicle plate number is required.';
     }
@@ -160,6 +169,7 @@ async function submitRenewalRequest(event) {
     const payload = {
         renewalType: 'Individual',
         fullName: (document.getElementById('fullName').value || '').trim(),
+        email: (document.getElementById('email').value || '').trim(),
         vehiclePlateNumbers: collectPlateNumbers(),
         renewalMonthNote: (document.getElementById('renewalMonthNote').value || '').trim(),
     };
@@ -185,6 +195,7 @@ async function submitRenewalRequest(event) {
         const params = new URLSearchParams({
             renewalReference: result.renewalReference || '',
             renewalType: 'Individual',
+            email: result.email || payload.email || '',
             submittedAt: result.submittedAt || '',
         });
         window.location.href = `renewal-success.html?${params.toString()}`;

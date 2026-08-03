@@ -99,11 +99,13 @@ function renderRenewals() {
         const submittedAt = formatDateTime(renewal.submittedAt);
         const isTenant = renewal.renewalType === 'Tenant';
         const totalAmount = isTenant ? (renewal.pricingBreakdown && renewal.pricingBreakdown.grandTotal) || 0 : 0;
+        const emailLine = renewal.email ? `<p class="vehicle-number">Email: ${escapeHtml(renewal.email)}</p>` : '';
 
         card.innerHTML = `
             <div class="application-header">
                 <div class="applicant-info">
                     <h3>${escapeHtml(isTenant ? (renewal.companyName || '-') : (renewal.fullName || '-'))}</h3>
+                    ${emailLine}
                     <p class="vehicle-number">${escapeHtml(isTenant ? `Contact: ${renewal.contactPerson || '-'}` : `Plates: ${plateList}`)}</p>
                     <p class="vehicle-number">Renewal Month: ${escapeHtml(renewal.renewalMonthNote || '-')}</p>
                     ${isTenant ? `<p class="vehicle-number">Total Amount: RM ${escapeHtml(String(totalAmount))}</p>` : ''}
