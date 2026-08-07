@@ -40,12 +40,12 @@ The easiest Cloud Run flow is:
 
 1. Build the image from `backend/`.
 2. Deploy the image to Cloud Run.
-3. Copy the Cloud Run service URL into the frontend `API_BASE_URL` secret described below.
+3. Use the Cloud Run service URL `https://hispeedcity-backend-635388135964.us-central1.run.app/api` in the frontend `API_BASE_URL` secret described below.
 
 ### Frontend on GitHub Pages
 
 The frontend is static and can be deployed from GitHub Pages with the workflow in [.github/workflows/deploy-frontend.yml](.github/workflows/deploy-frontend.yml).
 
-Set a repository variable named `API_BASE_URL` to your Cloud Run API base, for example `https://your-service-xxxxx-uc.a.run.app/api`.
+Set a repository variable named `API_BASE_URL` to your Cloud Run API base, for example `https://hispeedcity-backend-635388135964.us-central1.run.app/api`.
 
 The workflow writes that value into [frontend/public/config.js](frontend/public/config.js) before building so the browser can reach the deployed backend.
