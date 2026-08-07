@@ -1,4 +1,6 @@
 // Admin Application Details Handler
+let currentApplicationApprovalContext = null;
+
 window.addEventListener('DOMContentLoaded', function() {
     const referenceNumber = sessionStorage.getItem('currentApplicationReference');
 
@@ -8,6 +10,9 @@ window.addEventListener('DOMContentLoaded', function() {
     }
     
     const detailsContainer = document.getElementById('detailsContainer');
+
+        wireApplicationApprovalModal();
+        currentApplicationApprovalContext = null;
 
     requestJson(`/admin/applications/${encodeURIComponent(referenceNumber)}`, { loadingMessage: 'Loading application details...' })
         .then(result => {
@@ -55,6 +60,22 @@ window.addEventListener('DOMContentLoaded', function() {
                 <div class="details-section" data-testid="detail-receipt-section">
                     <h2>Payment Receipt</h2>
                     ${app.receiptUrl ? `<a href="${escapeHtml(app.receiptUrl)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(app.receiptUrl)}" alt="Payment Receipt" class="receipt-image" data-testid="receipt-image"></a>` : '<p class="no-receipt">No receipt uploaded</p>'}
+                </div>
+            ` : '';
+
+            const approvedReceiptSectionHtml = app.receiptInfo ? `
+                <div class="details-section" data-testid="detail-approved-receipt-section">
+                    <h2>Approved Receipt Information</h2>
+                    <div class="detail-row"><span class="detail-label">Receipt Number:</span><span class="detail-value">${escapeHtml(app.receiptInfo.receiptNumber || '-')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Company Name:</span><span class="detail-value">${escapeHtml(app.receiptInfo.companyName || '-')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Company Address:</span><span class="detail-value" style="white-space:pre-wrap;">${escapeHtml(app.receiptInfo.companyAddress || '-')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Parking Type:</span><span class="detail-value">${escapeHtml(app.receiptInfo.parkingType || '-')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Subscription Month:</span><span class="detail-value">${escapeHtml(app.receiptInfo.subscriptionMonth || app.receiptInfo.productMonth || '-')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Vehicle Plate Number(s):</span><span class="detail-value">${escapeHtml((app.receiptInfo.vehiclePlateNumbers || []).join(', ') || '-')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Quantity:</span><span class="detail-value">${escapeHtml(String(app.receiptInfo.quantity || 1))}</span></div>
+                    <div class="detail-row"><span class="detail-label">Unit Price:</span><span class="detail-value">RM ${escapeHtml(String(app.receiptInfo.unitPrice || 0))}</span></div>
+                    <div class="detail-row"><span class="detail-label">Total Amount:</span><span class="detail-value"><strong>RM ${escapeHtml(String(app.receiptInfo.totalAmount || 0))}</strong></span></div>
+                    <div class="detail-row"><span class="detail-label">Additional Notes:</span><span class="detail-value">${escapeHtml(app.receiptInfo.additionalNotes || '-')}</span></div>
                 </div>
             ` : '';
 
@@ -110,6 +131,8 @@ window.addEventListener('DOMContentLoaded', function() {
                 ${parkingSectionHtml}
 
                 ${receiptSectionHtml}
+
+                ${approvedReceiptSectionHtml}
             `;
 
             if (app.status === 'Pending') {
@@ -117,6 +140,11 @@ window.addEventListener('DOMContentLoaded', function() {
                 actionButtons.style.display = 'flex';
 
                 document.getElementById('approveBtn').addEventListener('click', function() {
+                    if (isRegistration) {
+                        openApplicationApprovalModal(referenceNumber, app);
+                        return;
+                    }
+
                     updateApplicationStatus(referenceNumber, 'Approved', this);
                 });
 
@@ -149,4 +177,144 @@ async function updateApplicationStatus(referenceNumber, newStatus, button) {
         showAppMessage(error.message, 'error');
         setButtonLoading(button, false);
     }
+}
+
+function getApplicationVehicleNumbers(application) {
+    const vehicles = Array.isArray(application.vehicles) ? application.vehicles : [];
+    const numbers = vehicles
+        .map(vehicle => (vehicle && vehicle.vehicleNumber ? String(vehicle.vehicleNumber).trim().toUpperCase() : ''))
+        .filter(Boolean);
+
+    if (!numbers.length && application.vehicleNumber) {
+        numbers.push(String(application.vehicleNumber).trim().toUpperCase());
+    }
+
+    return Array.from(new Set(numbers));
+}
+
+function calculateRegistrationReceipt(application) {
+    const parkingPrices = {
+        'Non Reserved': 159,
+        Reserved: 212,
+        Premium: 318,
+    };
+    const multipliers = {
+        Monthly: 1,
+        Quarterly: 3,
+        'Half-Year': 6,
+        'Half Year': 6,
+        Yearly: 12,
+    };
+
+    const quantity = Math.max(getApplicationVehicleNumbers(application).length, 1);
+    const parkingType = application.parkingType || '-';
+    const subscriptionPeriod = application.subscriptionPeriod || '-';
+    const unitPrice = parkingPrices[parkingType] || 0;
+    const totalAmount = unitPrice * (multipliers[subscriptionPeriod] || 1) * quantity;
+
+    return { quantity, parkingType, subscriptionPeriod, unitPrice, totalAmount };
+}
+
+function wireApplicationApprovalModal() {
+    const modal = document.getElementById('applicationApprovalModal');
+    const backdrop = document.getElementById('applicationApprovalBackdrop');
+    const closeBtn = document.getElementById('applicationApprovalCloseBtn');
+    const cancelBtn = document.getElementById('approvalCancelBtn');
+    const form = document.getElementById('applicationApprovalForm');
+
+    function closeModal() {
+        if (!modal) {
+            return;
+        }
+
+        modal.hidden = true;
+        document.body.classList.remove('has-open-approval-modal');
+        currentApplicationApprovalContext = null;
+        if (form) {
+            form.reset();
+        }
+    }
+
+    if (backdrop) {
+        backdrop.addEventListener('click', closeModal);
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeModal);
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closeModal);
+    }
+
+    if (form) {
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            if (!currentApplicationApprovalContext) {
+                showAppMessage('Application details are missing.', 'error');
+                return;
+            }
+
+            const companyAddress = (document.getElementById('approvalCompanyAddress').value || '').trim();
+            if (!companyAddress) {
+                showAppMessage('Company Address is required.', 'warning');
+                return;
+            }
+
+            const submitButton = document.getElementById('approvalConfirmBtn');
+            setButtonLoading(submitButton, true, 'Confirming...');
+
+            try {
+                const result = await requestJson(`/admin/applications/${encodeURIComponent(currentApplicationApprovalContext.referenceNumber)}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyAddress }),
+                    loadingMessage: 'Generating receipt and sending email...'
+                });
+
+                showAppMessage(result.message || 'Application approved successfully.', 'success', 'Approved');
+                closeModal();
+                setTimeout(() => {
+                    window.location.href = 'admin-applications.html';
+                }, 1000);
+            } catch (error) {
+                showAppMessage(error.message, 'error', 'Approval failed');
+                setButtonLoading(submitButton, false);
+            }
+        });
+    }
+
+    window.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && modal && !modal.hidden) {
+            closeModal();
+        }
+    });
+
+    window.closeApplicationApprovalModal = closeModal;
+}
+
+function openApplicationApprovalModal(referenceNumber, application) {
+    const modal = document.getElementById('applicationApprovalModal');
+    if (!modal || !application) {
+        showAppMessage('Application details are not ready yet.', 'warning');
+        return;
+    }
+
+    const vehicleNumbers = getApplicationVehicleNumbers(application);
+    const receiptPreview = calculateRegistrationReceipt(application);
+
+    currentApplicationApprovalContext = { referenceNumber, application };
+
+    document.getElementById('approvalCustomerName').textContent = application.fullName || '-';
+    document.getElementById('approvalCustomerEmail').textContent = application.email || '-';
+    document.getElementById('approvalCompanyName').textContent = application.companyName || '-';
+    document.getElementById('approvalParkingType').textContent = receiptPreview.parkingType || '-';
+    document.getElementById('approvalSubscriptionPeriod').textContent = receiptPreview.subscriptionPeriod || '-';
+    document.getElementById('approvalVehiclePlates').textContent = vehicleNumbers.length ? vehicleNumbers.join(', ') : '-';
+    document.getElementById('approvalTotalAmount').textContent = `RM ${receiptPreview.totalAmount || 0}`;
+    document.getElementById('approvalCompanyAddress').value = '';
+
+    modal.hidden = false;
+    document.body.classList.add('has-open-approval-modal');
 }

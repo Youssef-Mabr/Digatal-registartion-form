@@ -19,9 +19,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, TypeAdapter
+from starlette.concurrency import run_in_threadpool
+
+from email_service import build_receipt_email_message, build_renewal_receipt_email_message, send_email_with_attachment
+from receipt_renderer import generate_renewal_receipt_pdf
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / ".env")
+load_dotenv(ROOT_DIR / ".env", override=True)
 
 MONGO_URL = os.environ.get("MONGO_URL") or os.environ["MONGODB_URI"]
 DB_NAME = os.environ["DB_NAME"]
@@ -601,6 +605,30 @@ def normalize_email_address(raw_value: Any) -> str:
     return str(validated_email)
 
 
+def generate_receipt_number(renewal_reference: str) -> str:
+    normalized_reference = str(renewal_reference or '').strip().replace(' ', '-')
+    suffix = normalized_reference or uuid.uuid4().hex[:10].upper()
+    return f'RCPT-{suffix}'
+
+
+def normalize_required_text(raw_value: Any, field_name: str) -> str:
+    value = str(raw_value or '').strip()
+    if not value:
+        raise HTTPException(status_code=400, detail=f'{field_name} is required')
+    return value
+
+
+def coerce_positive_int(raw_value: Any, field_name: str) -> int:
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f'{field_name} must be a whole number') from exc
+
+    if value <= 0:
+        raise HTTPException(status_code=400, detail=f'{field_name} must be greater than zero')
+    return value
+
+
 def create_token(username: str) -> str:
     payload = {
         'sub': username,
@@ -634,12 +662,35 @@ class ChangePasswordRequest(BaseModel):
 class StatusUpdateRequest(BaseModel):
     status: str
 
+
+class ApplicationApprovalRequest(BaseModel):
+    companyAddress: str
+
 class RenewalCreateResponse(BaseModel):
     message: str
     renewalReference: str
     email: Optional[EmailStr] = None
     status: str
     submittedAt: datetime
+
+
+class RenewalApprovalRequest(BaseModel):
+    companyName: str
+    companyAddress: str
+    receiptNumber: Optional[str] = ""
+    productMonth: str
+    parkingType: str
+    quantity: int
+    unitPrice: int
+    totalAmount: int
+    additionalNotes: Optional[str] = ""
+
+
+class RenewalEmailStatusUpdate(BaseModel):
+    emailStatus: str
+    emailSentAt: Optional[datetime] = None
+    emailErrorMessage: Optional[str] = None
+    emailProviderMessageId: Optional[str] = None
 
 
 class ApplicationCreateResponse(BaseModel):
@@ -814,6 +865,91 @@ async def update_application_status(reference_number: str, payload: StatusUpdate
     return {'message': 'Application status updated', 'application': to_application_response(result)}
 
 
+@api_router.post('/admin/applications/{reference_number}/approve')
+async def approve_application(
+    reference_number: str,
+    payload: ApplicationApprovalRequest,
+    username: str = Depends(require_admin),
+):
+    application = await db.applications.find_one({'referenceNumber': reference_number})
+    if not application:
+        raise HTTPException(status_code=404, detail='Application not found')
+
+    if str(application.get('applicationType') or 'registration').strip().lower() != 'registration':
+        raise HTTPException(status_code=400, detail='Approval receipt form is only available for New Registration requests')
+
+    if application.get('status') == STATUS_APPROVED:
+        raise HTTPException(status_code=400, detail='Application is already approved')
+
+    company_address = normalize_required_text(payload.companyAddress, 'Company Address')
+    receipt_document = build_registration_receipt_document(application, company_address, username)
+
+    try:
+        receipt_artifact = await generate_renewal_receipt_pdf(receipt_document)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f'Failed to generate registration receipt PDF: {exc}') from exc
+
+    email_status = 'Failed'
+    email_sent_at = None
+    email_error_message = None
+    email_provider_message_id = None
+
+    try:
+        email_text, email_html = build_receipt_email_message(
+            str(application.get('fullName') or 'Customer'),
+            receipt_document['receiptNumber'],
+        )
+        email_result = await run_in_threadpool(
+            send_email_with_attachment,
+            to_email=str(application.get('email') or ''),
+            subject='Parking Renewal Receipt',
+            text_body=email_text,
+            html_body=email_html,
+            attachment_filename=f"{receipt_document['receiptNumber']}.pdf",
+            attachment_bytes=receipt_artifact.pdf_bytes,
+            from_email='hi@hispeedcity.com',
+        )
+        email_status = email_result.status
+        email_sent_at = email_result.sent_at
+        email_provider_message_id = email_result.provider_message_id
+    except Exception as exc:
+        email_error_message = str(exc)
+
+    approved_at = datetime.now(timezone.utc)
+    result = await db.applications.find_one_and_update(
+        {'referenceNumber': reference_number},
+        {
+            '$set': {
+                'status': STATUS_APPROVED,
+                'receiptInfo': receipt_document,
+                'approvedBy': username,
+                'approvedAt': approved_at,
+                'emailStatus': email_status,
+                'emailSentAt': email_sent_at,
+                'emailErrorMessage': email_error_message,
+                'emailProviderMessageId': email_provider_message_id,
+                'updatedAt': approved_at,
+            }
+        },
+        return_document=ReturnDocument.AFTER,
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail='Application not found')
+
+    result.pop('_id', None)
+    return {
+        'message': 'Application approved successfully',
+        'receiptPdfGenerated': True,
+        'receiptPdfPath': str(receipt_artifact.pdf_path),
+        'receiptPdfSizeBytes': len(receipt_artifact.pdf_bytes),
+        'emailStatus': email_status,
+        'emailSentAt': email_sent_at,
+        'emailErrorMessage': email_error_message,
+        'application': to_application_response(result),
+    }
+
+
 def calculate_total_amount(parking_type: str, subscription_period: str, vehicle_count: int) -> int:
     parking_prices = {
         'Non Reserved': 159,
@@ -823,9 +959,59 @@ def calculate_total_amount(parking_type: str, subscription_period: str, vehicle_
     multipliers = {
         'Monthly': 1,
         'Quarterly': 3,
+        'Half-Year': 6,
+        'Half Year': 6,
         'Yearly': 12,
     }
     return parking_prices.get(parking_type, 0) * multipliers.get(subscription_period, 1) * max(vehicle_count, 1)
+
+
+def get_registration_receipt_totals(application: dict[str, Any]) -> tuple[int, int, int]:
+    parking_type = str(application.get('parkingType') or '').strip()
+    subscription_period = str(application.get('subscriptionPeriod') or '').strip()
+    vehicles = application.get('vehicles') or normalize_vehicles(application)
+    quantity = max(len(vehicles), 1)
+    unit_price = PARKING_PRICES.get(parking_type_to_key(parking_type) or '', 0)
+    multipliers = {
+        'Monthly': 1,
+        'Quarterly': 3,
+        'Half-Year': 6,
+        'Half Year': 6,
+        'Yearly': 12,
+    }
+    total_amount = unit_price * multipliers.get(subscription_period, 1) * quantity
+    return unit_price, quantity, total_amount
+
+
+def build_registration_receipt_document(application: dict[str, Any], company_address: str, approved_by: str) -> dict[str, Any]:
+    unit_price, quantity, total_amount = get_registration_receipt_totals(application)
+    vehicles = application.get('vehicles') or normalize_vehicles(application)
+    vehicle_plate_numbers = [
+        str(vehicle.get('vehicleNumber') or '').strip().upper()
+        for vehicle in vehicles
+        if str(vehicle.get('vehicleNumber') or '').strip()
+    ]
+    if not vehicle_plate_numbers and application.get('vehicleNumber'):
+        vehicle_plate_numbers = [str(application.get('vehicleNumber')).strip().upper()]
+
+    return {
+        'renewalType': application.get('parkingType') or 'Individual Renewal',
+        'customerName': application.get('fullName') or '',
+        'customerEmail': application.get('email') or '',
+        'companyName': application.get('companyName') or '',
+        'companyAddress': company_address,
+        'receiptNumber': generate_receipt_number(application.get('referenceNumber') or ''),
+        'parkingType': application.get('parkingType') or 'Individual Renewal',
+        'subscriptionMonth': application.get('subscriptionPeriod') or '',
+        'vehiclePlateNumbers': vehicle_plate_numbers,
+        'quantity': quantity,
+        'unitPrice': unit_price,
+        'totalAmount': total_amount,
+        'additionalNotes': '-',
+        'approvedBy': approved_by,
+        'approvedAt': datetime.now(timezone.utc),
+        'grandTotal': total_amount,
+    }
 
 
 async def upload_receipt(file: UploadFile) -> str:
@@ -1093,6 +1279,129 @@ async def update_renewal_status(
         raise HTTPException(status_code=404, detail='Renewal request not found')
 
     return {'message': 'Renewal status updated', 'renewal': serialize_doc(result)}
+
+
+@api_router.post('/admin/renewals/{renewal_reference}/approve')
+async def approve_renewal(
+    renewal_reference: str,
+    payload: RenewalApprovalRequest,
+    username: str = Depends(require_admin),
+):
+    renewal = await db.renewals.find_one({'renewalReference': renewal_reference})
+    if not renewal:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+
+    if str(renewal.get('renewalType') or '').strip() != 'Individual':
+        raise HTTPException(status_code=400, detail='Approval receipt form is only available for Individual renewal requests')
+
+    if renewal.get('status') == STATUS_APPROVED:
+        raise HTTPException(status_code=400, detail='Renewal request is already approved')
+
+    company_name = normalize_required_text(payload.companyName, 'Company Name')
+    company_address = normalize_required_text(payload.companyAddress, 'Company Address')
+    product_month = normalize_required_text(payload.productMonth, 'Product / Subscription Month')
+    parking_type = normalize_required_text(payload.parkingType, 'Parking Type')
+    receipt_number = str(payload.receiptNumber or '').strip() or generate_receipt_number(renewal_reference)
+    additional_notes = str(payload.additionalNotes or '').strip()
+    quantity = coerce_positive_int(payload.quantity, 'Quantity')
+    unit_price = coerce_positive_int(payload.unitPrice, 'Unit Price')
+    total_amount = coerce_positive_int(payload.totalAmount, 'Total Amount')
+
+    expected_total = quantity * unit_price
+    if total_amount != expected_total:
+        raise HTTPException(status_code=400, detail='Total Amount must equal Quantity multiplied by Unit Price')
+
+    customer_name = str(renewal.get('fullName') or renewal.get('contactPerson') or '').strip()
+    customer_email = str(renewal.get('email') or '').strip()
+    vehicle_plate_numbers = renewal.get('vehiclePlateNumbers') or []
+
+    receipt_info = {
+        'customerName': customer_name,
+        'customerEmail': customer_email,
+        'vehiclePlateNumbers': vehicle_plate_numbers,
+        'companyName': company_name,
+        'companyAddress': company_address,
+        'receiptNumber': receipt_number,
+        'productMonth': product_month,
+        'parkingType': parking_type,
+        'quantity': quantity,
+        'unitPrice': unit_price,
+        'totalAmount': total_amount,
+        'additionalNotes': additional_notes,
+        'approvedBy': username,
+        'approvedAt': datetime.now(timezone.utc),
+        'lineItems': [
+            {
+                'item': 1,
+                'productName': parking_type,
+                'description': product_month,
+                'qty': quantity,
+                'unitPrice': unit_price,
+                'totalPrice': total_amount,
+            }
+        ],
+    }
+
+    try:
+        receipt_artifact = await generate_renewal_receipt_pdf(renewal, receipt_info=receipt_info)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f'Failed to generate renewal receipt PDF: {exc}') from exc
+
+    email_status = 'Failed'
+    email_sent_at = None
+    email_error_message = None
+    email_provider_message_id = None
+
+    try:
+        email_text, email_html = build_renewal_receipt_email_message(customer_name or 'Customer', receipt_number)
+        email_result = await run_in_threadpool(
+            send_email_with_attachment,
+            to_email=customer_email,
+            subject='Parking Renewal Receipt',
+            text_body=email_text,
+            html_body=email_html,
+            attachment_filename=f'{receipt_number}.pdf',
+            attachment_bytes=receipt_artifact.pdf_bytes,
+            from_email='hi@hispeedcity.com',
+        )
+        email_status = email_result.status
+        email_sent_at = email_result.sent_at
+        email_provider_message_id = email_result.provider_message_id
+    except Exception as exc:
+        email_error_message = str(exc)
+
+    approved_at = datetime.now(timezone.utc)
+    result = await db.renewals.find_one_and_update(
+        {'renewalReference': renewal_reference},
+        {
+            '$set': {
+                'status': STATUS_APPROVED,
+                'receiptInfo': receipt_info,
+                'approvedBy': username,
+                'approvedAt': approved_at,
+                'emailStatus': email_status,
+                'emailSentAt': email_sent_at,
+                'emailErrorMessage': email_error_message,
+                'emailProviderMessageId': email_provider_message_id,
+                'updatedAt': approved_at,
+            }
+        },
+        return_document=ReturnDocument.AFTER,
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+
+    return {
+        'message': 'Renewal approved successfully',
+        'receiptPdfGenerated': True,
+        'receiptPdfPath': str(receipt_artifact.pdf_path),
+        'receiptPdfSizeBytes': len(receipt_artifact.pdf_bytes),
+        'emailStatus': email_status,
+        'emailSentAt': email_sent_at,
+        'emailErrorMessage': email_error_message,
+        'renewal': serialize_doc(result),
+    }
 
 
 @api_router.get('/renewals/reference/{renewal_reference}')

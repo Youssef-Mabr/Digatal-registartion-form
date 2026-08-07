@@ -86,6 +86,15 @@
             margin: 16px 0 18px;
         }
 
+        .receipt__section-title {
+            margin: 0 0 10px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #0f172a;
+        }
+
         .receipt__meta {
             display: flex;
             align-items: flex-start;
@@ -116,6 +125,40 @@
             justify-content: flex-end;
         }
 
+        .receipt__details {
+            margin-top: 24px;
+        }
+
+        .receipt__details-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 12px;
+        }
+
+        .receipt__details-table th,
+        .receipt__details-table td {
+            border: 1px solid #111111;
+            padding: 7px 10px;
+            vertical-align: top;
+        }
+
+        .receipt__details-label {
+            width: 30%;
+            text-align: left;
+            background: #f8fafc;
+            font-size: 11px;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .receipt__details-value {
+            width: 70%;
+            font-size: 12px;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
         .receipt__number {
             min-width: 220px;
             border: 2px solid #2b2b2b;
@@ -129,10 +172,6 @@
             background: #fff200;
             padding: 0 6px;
             font-weight: 700;
-        }
-
-        .receipt__table-wrap {
-            margin-top: 64px;
         }
 
         table {
@@ -186,28 +225,6 @@
         .col-total {
             width: 17%;
             text-align: center;
-        }
-
-        .receipt__total-row {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 24px;
-        }
-
-        .receipt__total-box {
-            min-width: 280px;
-            border: 2px solid #2b2b2b;
-            padding: 7px 12px 8px;
-            font-size: 14px;
-            color: #111111;
-            background: #ffffff;
-            text-align: left;
-        }
-
-        .receipt__total-label {
-            background: #fff200;
-            padding: 0 6px;
-            font-weight: 700;
         }
 
         .receipt__thanks {
@@ -269,29 +286,13 @@
             </div>
         </div>
 
-        <div class="receipt__table-wrap">
-            <table aria-label="Receipt item details">
-                <thead>
-                    <tr>
-                        <th class="col-item">ITEM</th>
-                        <th class="col-product">PRODUCT NAME</th>
-                        <th class="col-description">DESCRIPTIONS</th>
-                        <th class="col-qty">QTY</th>
-                        <th class="col-unit">UNIT PRICE</th>
-                        <th class="col-total">TOTAL PRICE</th>
-                    </tr>
-                </thead>
+        <div class="receipt__details">
+            <div class="receipt__section-title">Approval Receipt Details</div>
+            <table class="receipt__details-table" aria-label="Approval receipt details">
                 <tbody>
-                    {{ item_rows_html }}
+                    {{ summary_rows_html | safe }}
                 </tbody>
             </table>
-        </div>
-
-        <div class="receipt__total-row">
-            <div class="receipt__total-box">
-                <span class="receipt__total-label">GRAND TOTAL | RM</span>
-                {{ grand_total }}
-            </div>
         </div>
 
         <div class="receipt__thanks">Thank you for your Business</div>

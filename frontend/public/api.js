@@ -1,4 +1,8 @@
-const API_BASE_URL = window.__API_BASE_URL__ || 'https://hispeedcity-backend-635388135964.us-central1.run.app/api';
+const API_BASE_URL = window.__API_BASE_URL__ || (
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://127.0.0.1:5000/api'
+    : 'https://YOUR_CLOUD_RUN_SERVICE_URL/api'
+);
 let activeRequestCount = 0;
 let messageTimer = null;
 
