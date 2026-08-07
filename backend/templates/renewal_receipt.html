@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renewal Receipt</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 14mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #ffffff;
+            color: #111827;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .receipt {
+            width: 100%;
+            border: 1.5px solid #2b2b2b;
+            padding: 20px 26px 24px;
+        }
+
+        .receipt__header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 18px;
+        }
+
+        .receipt__title {
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            line-height: 1;
+            color: #111111;
+        }
+
+        .receipt__brand {
+            width: 150px;
+            min-height: 52px;
+            border: 3px solid #334155;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .receipt__brand img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .receipt__brand-fallback {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 0 8px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #f59e0b;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .receipt__brand-fallback span {
+            color: #22c55e;
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: 0.01em;
+        }
+
+        .receipt__divider {
+            height: 3px;
+            background: #10b981;
+            margin: 16px 0 18px;
+        }
+
+        .receipt__section-title {
+            margin: 0 0 10px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #0f172a;
+        }
+
+        .receipt__meta {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .receipt__meta-left {
+            flex: 1 1 auto;
+            max-width: 62%;
+            font-size: 13px;
+            line-height: 1.55;
+            color: #111111;
+        }
+
+        .receipt__meta-left strong {
+            font-weight: 700;
+        }
+
+        .receipt__meta-address {
+            margin-top: 4px;
+        }
+
+        .receipt__meta-right {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-end;
+        }
+
+        .receipt__details {
+            margin-top: 24px;
+        }
+
+        .receipt__details-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 12px;
+        }
+
+        .receipt__details-table th,
+        .receipt__details-table td {
+            border: 1px solid #111111;
+            padding: 7px 10px;
+            vertical-align: top;
+        }
+
+        .receipt__details-label {
+            width: 30%;
+            text-align: left;
+            background: #f8fafc;
+            font-size: 11px;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .receipt__details-value {
+            width: 70%;
+            font-size: 12px;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
+        .receipt__number {
+            min-width: 220px;
+            border: 2px solid #2b2b2b;
+            padding: 8px 12px 9px;
+            font-size: 14px;
+            color: #111111;
+            background: #ffffff;
+        }
+
+        .receipt__number-label {
+            background: #fff200;
+            padding: 0 6px;
+            font-weight: 700;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 12px;
+        }
+
+        th,
+        td {
+            border: 1px solid #111111;
+            padding: 5px 8px;
+            vertical-align: top;
+        }
+
+        th {
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        td {
+            font-size: 12px;
+        }
+
+        .col-item {
+            width: 5%;
+            text-align: center;
+        }
+
+        .col-product {
+            width: 34%;
+        }
+
+        .col-description {
+            width: 20%;
+        }
+
+        .col-qty {
+            width: 8%;
+            text-align: center;
+        }
+
+        .col-unit {
+            width: 16%;
+            text-align: center;
+        }
+
+        .col-total {
+            width: 17%;
+            text-align: center;
+        }
+
+        .receipt__thanks {
+            margin-top: 34px;
+            text-align: center;
+            color: #10b981;
+            font-size: 14px;
+        }
+
+        .receipt__footer-divider {
+            height: 2px;
+            background: #10b981;
+            margin-top: 8px;
+            margin-bottom: 16px;
+        }
+
+        .receipt__footer {
+            text-align: center;
+            font-size: 12px;
+            line-height: 1.35;
+            color: #1f2937;
+        }
+
+        .receipt__footer small {
+            display: block;
+            color: #374151;
+        }
+    </style>
+</head>
+<body>
+    <section class="receipt">
+        <div class="receipt__header">
+            <div class="receipt__title">RECEIPT</div>
+            <div class="receipt__brand">
+                {% if logo_data_uri %}
+                <img src="{{ logo_data_uri }}" alt="Hispeedcity logo">
+                {% else %}
+                <div class="receipt__brand-fallback">Hi<span>speedcity.com</span></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="receipt__divider"></div>
+
+        <div class="receipt__meta">
+            <div class="receipt__meta-left">
+                <div><strong>Name:</strong> {{ customer_name }}</div>
+                <div><strong>Company Name:</strong> {{ company_name }}</div>
+                <div class="receipt__meta-address">
+                    <strong>Address:</strong><br>
+                    {{ address_block }}
+                </div>
+            </div>
+            <div class="receipt__meta-right">
+                <div class="receipt__number">
+                    <span class="receipt__number-label">RECEIPT Number:</span>
+                    {{ receipt_number }}
+                </div>
+            </div>
+        </div>
+
+        <div class="receipt__details">
+            <div class="receipt__section-title">Approval Receipt Details</div>
+            <table class="receipt__details-table" aria-label="Approval receipt details">
+                <tbody>
+                    {{ summary_rows_html | safe }}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="receipt__thanks">Thank you for your Business</div>
+        <div class="receipt__footer-divider"></div>
+
+        <div class="receipt__footer">
+            <small>{{ footer_help_line }}</small>
+            <small>{{ footer_computer_line }}</small>
+            <small>{{ footer_company_line }}</small>
+        </div>
+    </section>
+</body>
+</html>

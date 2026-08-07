@@ -18,10 +18,14 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, TypeAdapter
+from starlette.concurrency import run_in_threadpool
+
+from email_service import build_receipt_email_message, build_renewal_receipt_email_message, send_email_with_attachment
+from receipt_renderer import generate_renewal_receipt_pdf
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / ".env")
+load_dotenv(ROOT_DIR / ".env", override=True)
 
 MONGO_URL = os.environ.get("MONGO_URL") or os.environ["MONGODB_URI"]
 DB_NAME = os.environ["DB_NAME"]
@@ -37,7 +41,7 @@ cloudinary.config(
     secure=True,
 )
 
-client = AsyncIOMotorClient(MONGO_URL, tlsCAFile=certifi.where())
+client = AsyncIOMotorClient(MONGO_URL, tlsCAFile=certifi.where() if 'localhost' not in MONGO_URL else None)
 db = client[DB_NAME]
 
 
@@ -82,8 +86,9 @@ class ApplicationStatus(str, Enum):
 class ApplicationBase(BaseModel):
     fullName: str
     phoneNumber: str
+    email: EmailStr
     companyName: str
-    staffId: str
+    staffId: Optional[str] = ""
     vehicleNumber: str
     vehicleModel: str
     vehicleType: str
@@ -117,6 +122,110 @@ class ChangePasswordRequest(BaseModel):
 
 class StatusUpdateRequest(BaseModel):
     status: ApplicationStatus
+
+
+class ParkingAvailabilityUpdateRequest(BaseModel):
+    available: bool
+
+
+class ParkingPrice(BaseModel):
+    key: str
+    parkingType: str
+    label: str
+    monthlyPrice: int
+
+
+PARKING_TYPE_SETTINGS = [
+    {
+        'key': 'non_reserved',
+        'parkingType': 'Non Reserved',
+        'label': 'Non-Reserved Parking',
+    },
+    {
+        'key': 'reserved',
+        'parkingType': 'Reserved',
+        'label': 'Reserved Parking',
+    },
+    {
+        'key': 'premium',
+        'parkingType': 'Premium',
+        'label': 'Premium Parking',
+    },
+]
+
+PARKING_TYPE_LOOKUP = {item['parkingType']: item for item in PARKING_TYPE_SETTINGS}
+PARKING_KEY_LOOKUP = {item['key']: item for item in PARKING_TYPE_SETTINGS}
+PARKING_PRICES = {
+    'non_reserved': 159,
+    'reserved': 212,
+    'premium': 318,
+}
+
+
+def parking_type_to_key(parking_type: str | None) -> str | None:
+    if not parking_type:
+        return None
+    config = PARKING_TYPE_LOOKUP.get(parking_type.strip())
+    return config['key'] if config else None
+
+
+def parking_type_to_label(parking_type: str | None) -> str:
+    if not parking_type:
+        return 'Parking Type'
+    config = PARKING_TYPE_LOOKUP.get(parking_type.strip())
+    return config['label'] if config else parking_type.strip()
+
+
+async def seed_default_parking_settings() -> None:
+    for config in PARKING_TYPE_SETTINGS:
+        await db.parking_settings.update_one(
+            {'key': config['key']},
+            {
+                '$setOnInsert': {
+                    'key': config['key'],
+                    'parkingType': config['parkingType'],
+                    'label': config['label'],
+                    'available': True,
+                    'createdAt': now_utc(),
+                    'updatedAt': now_utc(),
+                }
+            },
+            upsert=True,
+        )
+
+
+async def get_parking_availability_records() -> list[dict[str, Any]]:
+    docs = await db.parking_settings.find({}, {'_id': 0}).to_list(20)
+    doc_map = {doc.get('key'): doc for doc in docs if doc.get('key')}
+    records: list[dict[str, Any]] = []
+
+    for config in PARKING_TYPE_SETTINGS:
+        doc = doc_map.get(config['key'], {})
+        records.append({
+            'key': config['key'],
+            'parkingType': config['parkingType'],
+            'label': config['label'],
+            'available': doc.get('available', True),
+            'updatedAt': doc.get('updatedAt'),
+        })
+
+    return records
+
+
+async def get_parking_availability_map() -> dict[str, dict[str, Any]]:
+    return {record['key']: record for record in await get_parking_availability_records()}
+
+
+def get_parking_price_records() -> list[dict[str, Any]]:
+    return [
+        {
+            'key': config['key'],
+            'parkingType': config['parkingType'],
+            'label': config['label'],
+            'monthlyPrice': PARKING_PRICES.get(config['key'], 0),
+        }
+        for config in PARKING_TYPE_SETTINGS
+    ]
 
 
 def now_utc() -> datetime:
@@ -208,7 +317,7 @@ def normalize_vehicles(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def calculate_total_amount(parking_type: str, subscription_period: str, vehicle_count: int) -> int:
-    parking_prices = {"Non Reserved": 150, "Reserved": 200, "Premium": 300}
+    parking_prices = {"Non Reserved": 159, "Reserved": 212, "Premium": 318}
     multipliers = {"Monthly": 1, "Quarterly": 3, "Yearly": 12}
     return parking_prices.get(parking_type, 0) * multipliers.get(subscription_period, 1) * max(vehicle_count, 1)
 
@@ -229,6 +338,7 @@ async def upload_receipt_to_cloudinary(file: UploadFile) -> str:
 @app.on_event("startup")
 async def startup_event() -> None:
     await seed_default_admin()
+    await seed_default_parking_settings()
 
 
 @app.on_event("shutdown")
@@ -285,8 +395,14 @@ async def admin_me(current_admin: dict[str, Any] = Depends(get_current_admin)) -
 
 @app.put("/api/admin/change-password")
 async def change_password(request: ChangePasswordRequest, current_admin: dict[str, Any] = Depends(get_current_admin)) -> dict[str, str]:
+    if not request.currentPassword.strip() or not request.newPassword.strip() or not request.confirmNewPassword.strip():
+        raise HTTPException(status_code=400, detail="All password fields are required")
+
     if request.newPassword != request.confirmNewPassword:
         raise HTTPException(status_code=400, detail="New password and confirmation do not match")
+
+    if request.currentPassword == request.newPassword:
+        raise HTTPException(status_code=400, detail="New password must be different from the current password")
 
     admin = await db.admins.find_one({"_id": current_admin["_id"]})
     if not admin:
@@ -314,6 +430,46 @@ async def dashboard_stats(_: dict[str, Any] = Depends(get_current_admin)) -> dic
         "approvedApplications": approved,
         "rejectedApplications": rejected,
     }
+
+
+@app.get('/api/parking-availability')
+async def get_public_parking_availability() -> dict[str, list[dict[str, Any]]]:
+    return {'parkingAvailability': await get_parking_availability_records()}
+
+
+@app.get('/api/admin/parking-availability')
+async def get_admin_parking_availability(_: dict[str, Any] = Depends(get_current_admin)) -> dict[str, list[dict[str, Any]]]:
+    return {'parkingAvailability': await get_parking_availability_records()}
+
+
+@app.put('/api/admin/parking-availability/{parking_key}')
+async def update_parking_availability(
+    parking_key: str,
+    request: ParkingAvailabilityUpdateRequest,
+    _: dict[str, Any] = Depends(get_current_admin),
+) -> dict[str, list[dict[str, Any]]]:
+    config = PARKING_KEY_LOOKUP.get(parking_key)
+    if not config:
+        raise HTTPException(status_code=404, detail='Parking type not found')
+
+    await db.parking_settings.update_one(
+        {'key': parking_key},
+        {
+            '$set': {
+                'available': request.available,
+                'updatedAt': now_utc(),
+            },
+            '$setOnInsert': {
+                'key': parking_key,
+                'parkingType': config['parkingType'],
+                'label': config['label'],
+                'createdAt': now_utc(),
+            },
+        },
+        upsert=True,
+    )
+
+    return {'parkingAvailability': await get_parking_availability_records()}
 
 
 @app.get("/api/admin/applications")
@@ -351,59 +507,6 @@ async def get_public_application(reference_number: str) -> dict[str, Any]:
     return application
 
 
-@app.post("/api/applications")
-async def create_application(
-    applicationData: str = Form(...),
-    receipt: UploadFile = File(...),
-) -> dict[str, Any]:
-    import json
-
-    payload = json.loads(applicationData)
-    vehicles = normalize_vehicles(payload)
-    if not vehicles:
-        raise HTTPException(status_code=400, detail="At least one vehicle is required")
-
-    required_fields = ["fullName", "phoneNumber", "companyName", "staffId", "parkingType", "subscriptionPeriod"]
-    for field_name in required_fields:
-        if not payload.get(field_name):
-            raise HTTPException(status_code=400, detail=f"{field_name} is required")
-
-    receipt_url = await upload_receipt_to_cloudinary(receipt)
-    reference_number = await next_reference_number()
-
-    vehicle0 = vehicles[0]
-    total_amount = int(payload.get("totalAmount") or 0)
-    if total_amount <= 0:
-        total_amount = calculate_total_amount(payload["parkingType"], payload["subscriptionPeriod"], len(vehicles))
-
-    application_doc = {
-        "referenceNumber": reference_number,
-        "fullName": payload["fullName"],
-        "phoneNumber": payload["phoneNumber"],
-        "companyName": payload["companyName"],
-        "staffId": payload["staffId"],
-        "vehicleNumber": vehicle0.get("vehicleNumber", ""),
-        "vehicleModel": vehicle0.get("vehicleModel", ""),
-        "vehicleType": vehicle0.get("vehicleType", ""),
-        "vehicleColor": vehicle0.get("vehicleColor", ""),
-        "vehicles": vehicles,
-        "parkingType": payload["parkingType"],
-        "subscriptionPeriod": payload["subscriptionPeriod"],
-        "receiptUrl": receipt_url,
-        "status": "Pending",
-        "submittedAt": now_utc(),
-        "updatedAt": now_utc(),
-        "totalAmount": total_amount,
-    }
-
-    await db.applications.insert_one(application_doc)
-
-    return {
-        "message": "Application submitted successfully",
-        "referenceNumber": reference_number,
-        "status": "Pending",
-        "submittedAt": application_doc["submittedAt"],
-    }
 from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -452,7 +555,7 @@ cloudinary.config(
 
 client = AsyncIOMotorClient(
     MONGO_URL,
-    tlsCAFile=certifi.where(),
+    tlsCAFile=certifi.where() if 'localhost' not in MONGO_URL else None,
     serverSelectionTimeoutMS=MONGO_TIMEOUT_MS,
     connectTimeoutMS=MONGO_TIMEOUT_MS,
     socketTimeoutMS=MONGO_TIMEOUT_MS,
@@ -489,6 +592,43 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 
+def normalize_email_address(raw_value: Any) -> str:
+    email = str(raw_value or '').strip()
+    if not email:
+        raise HTTPException(status_code=400, detail='Email address is required')
+
+    try:
+        validated_email = TypeAdapter(EmailStr).validate_python(email)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail='Invalid email address') from exc
+
+    return str(validated_email)
+
+
+def generate_receipt_number(renewal_reference: str) -> str:
+    normalized_reference = str(renewal_reference or '').strip().replace(' ', '-')
+    suffix = normalized_reference or uuid.uuid4().hex[:10].upper()
+    return f'RCPT-{suffix}'
+
+
+def normalize_required_text(raw_value: Any, field_name: str) -> str:
+    value = str(raw_value or '').strip()
+    if not value:
+        raise HTTPException(status_code=400, detail=f'{field_name} is required')
+    return value
+
+
+def coerce_positive_int(raw_value: Any, field_name: str) -> int:
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f'{field_name} must be a whole number') from exc
+
+    if value <= 0:
+        raise HTTPException(status_code=400, detail=f'{field_name} must be greater than zero')
+    return value
+
+
 def create_token(username: str) -> str:
     payload = {
         'sub': username,
@@ -521,6 +661,36 @@ class ChangePasswordRequest(BaseModel):
 
 class StatusUpdateRequest(BaseModel):
     status: str
+
+
+class ApplicationApprovalRequest(BaseModel):
+    companyAddress: str
+
+class RenewalCreateResponse(BaseModel):
+    message: str
+    renewalReference: str
+    email: Optional[EmailStr] = None
+    status: str
+    submittedAt: datetime
+
+
+class RenewalApprovalRequest(BaseModel):
+    companyName: str
+    companyAddress: str
+    receiptNumber: Optional[str] = ""
+    productMonth: str
+    parkingType: str
+    quantity: int
+    unitPrice: int
+    totalAmount: int
+    additionalNotes: Optional[str] = ""
+
+
+class RenewalEmailStatusUpdate(BaseModel):
+    emailStatus: str
+    emailSentAt: Optional[datetime] = None
+    emailErrorMessage: Optional[str] = None
+    emailProviderMessageId: Optional[str] = None
 
 
 class ApplicationCreateResponse(BaseModel):
@@ -575,8 +745,14 @@ async def admin_me(username: str = Depends(require_admin)):
 
 @api_router.put('/admin/change-password')
 async def change_password(payload: ChangePasswordRequest, username: str = Depends(require_admin)):
+    if not payload.currentPassword.strip() or not payload.newPassword.strip() or not payload.confirmNewPassword.strip():
+        raise HTTPException(status_code=400, detail='All password fields are required')
+
     if payload.newPassword != payload.confirmNewPassword:
         raise HTTPException(status_code=400, detail='New password and confirmation do not match')
+
+    if payload.currentPassword == payload.newPassword:
+        raise HTTPException(status_code=400, detail='New password must be different from the current password')
 
     admin = await db.admins.find_one({'username': username})
     if not admin:
@@ -596,12 +772,65 @@ async def dashboard_stats(_: str = Depends(require_admin)):
     pending = await db.applications.count_documents({'status': STATUS_PENDING})
     approved = await db.applications.count_documents({'status': STATUS_APPROVED})
     rejected = await db.applications.count_documents({'status': STATUS_REJECTED})
+    total_renewals = await db.renewals.count_documents({})
+    pending_renewals = await db.renewals.count_documents({'status': STATUS_PENDING})
+    approved_renewals = await db.renewals.count_documents({'status': STATUS_APPROVED})
+    rejected_renewals = await db.renewals.count_documents({'status': STATUS_REJECTED})
     return {
         'totalApplications': total,
         'pendingApplications': pending,
         'approvedApplications': approved,
         'rejectedApplications': rejected,
+        'totalRenewals': total_renewals,
+        'pendingRenewals': pending_renewals,
+        'approvedRenewals': approved_renewals,
+        'rejectedRenewals': rejected_renewals,
     }
+
+
+@api_router.get('/parking-availability')
+async def get_public_parking_availability():
+    return {'parkingAvailability': await get_parking_availability_records()}
+
+
+@api_router.get('/parking-prices')
+async def get_public_parking_prices():
+    return {'parkingPrices': get_parking_price_records()}
+
+
+@api_router.get('/admin/parking-availability')
+async def get_admin_parking_availability(_: str = Depends(require_admin)):
+    return {'parkingAvailability': await get_parking_availability_records()}
+
+
+@api_router.put('/admin/parking-availability/{parking_key}')
+async def update_parking_availability(
+    parking_key: str,
+    payload: ParkingAvailabilityUpdateRequest,
+    _: str = Depends(require_admin),
+):
+    config = PARKING_KEY_LOOKUP.get(parking_key)
+    if not config:
+        raise HTTPException(status_code=404, detail='Parking type not found')
+
+    await db.parking_settings.update_one(
+        {'key': parking_key},
+        {
+            '$set': {
+                'available': payload.available,
+                'updatedAt': datetime.now(timezone.utc),
+            },
+            '$setOnInsert': {
+                'key': parking_key,
+                'parkingType': config['parkingType'],
+                'label': config['label'],
+                'createdAt': datetime.now(timezone.utc),
+            },
+        },
+        upsert=True,
+    )
+
+    return {'parkingAvailability': await get_parking_availability_records()}
 
 
 @api_router.get('/admin/applications')
@@ -636,18 +865,153 @@ async def update_application_status(reference_number: str, payload: StatusUpdate
     return {'message': 'Application status updated', 'application': to_application_response(result)}
 
 
+@api_router.post('/admin/applications/{reference_number}/approve')
+async def approve_application(
+    reference_number: str,
+    payload: ApplicationApprovalRequest,
+    username: str = Depends(require_admin),
+):
+    application = await db.applications.find_one({'referenceNumber': reference_number})
+    if not application:
+        raise HTTPException(status_code=404, detail='Application not found')
+
+    if str(application.get('applicationType') or 'registration').strip().lower() != 'registration':
+        raise HTTPException(status_code=400, detail='Approval receipt form is only available for New Registration requests')
+
+    if application.get('status') == STATUS_APPROVED:
+        raise HTTPException(status_code=400, detail='Application is already approved')
+
+    company_address = normalize_required_text(payload.companyAddress, 'Company Address')
+    receipt_document = build_registration_receipt_document(application, company_address, username)
+
+    try:
+        receipt_artifact = await generate_renewal_receipt_pdf(receipt_document)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f'Failed to generate registration receipt PDF: {exc}') from exc
+
+    email_status = 'Failed'
+    email_sent_at = None
+    email_error_message = None
+    email_provider_message_id = None
+
+    try:
+        email_text, email_html = build_receipt_email_message(
+            str(application.get('fullName') or 'Customer'),
+            receipt_document['receiptNumber'],
+        )
+        email_result = await run_in_threadpool(
+            send_email_with_attachment,
+            to_email=str(application.get('email') or ''),
+            subject='Parking Renewal Receipt',
+            text_body=email_text,
+            html_body=email_html,
+            attachment_filename=f"{receipt_document['receiptNumber']}.pdf",
+            attachment_bytes=receipt_artifact.pdf_bytes,
+            from_email='hi@hispeedcity.com',
+        )
+        email_status = email_result.status
+        email_sent_at = email_result.sent_at
+        email_provider_message_id = email_result.provider_message_id
+    except Exception as exc:
+        email_error_message = str(exc)
+
+    approved_at = datetime.now(timezone.utc)
+    result = await db.applications.find_one_and_update(
+        {'referenceNumber': reference_number},
+        {
+            '$set': {
+                'status': STATUS_APPROVED,
+                'receiptInfo': receipt_document,
+                'approvedBy': username,
+                'approvedAt': approved_at,
+                'emailStatus': email_status,
+                'emailSentAt': email_sent_at,
+                'emailErrorMessage': email_error_message,
+                'emailProviderMessageId': email_provider_message_id,
+                'updatedAt': approved_at,
+            }
+        },
+        return_document=ReturnDocument.AFTER,
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail='Application not found')
+
+    result.pop('_id', None)
+    return {
+        'message': 'Application approved successfully',
+        'receiptPdfGenerated': True,
+        'receiptPdfPath': str(receipt_artifact.pdf_path),
+        'receiptPdfSizeBytes': len(receipt_artifact.pdf_bytes),
+        'emailStatus': email_status,
+        'emailSentAt': email_sent_at,
+        'emailErrorMessage': email_error_message,
+        'application': to_application_response(result),
+    }
+
+
 def calculate_total_amount(parking_type: str, subscription_period: str, vehicle_count: int) -> int:
     parking_prices = {
-        'Non Reserved': 150,
-        'Reserved': 200,
-        'Premium': 300,
+        'Non Reserved': 159,
+        'Reserved': 212,
+        'Premium': 318,
     }
     multipliers = {
         'Monthly': 1,
         'Quarterly': 3,
+        'Half-Year': 6,
+        'Half Year': 6,
         'Yearly': 12,
     }
     return parking_prices.get(parking_type, 0) * multipliers.get(subscription_period, 1) * max(vehicle_count, 1)
+
+
+def get_registration_receipt_totals(application: dict[str, Any]) -> tuple[int, int, int]:
+    parking_type = str(application.get('parkingType') or '').strip()
+    subscription_period = str(application.get('subscriptionPeriod') or '').strip()
+    vehicles = application.get('vehicles') or normalize_vehicles(application)
+    quantity = max(len(vehicles), 1)
+    unit_price = PARKING_PRICES.get(parking_type_to_key(parking_type) or '', 0)
+    multipliers = {
+        'Monthly': 1,
+        'Quarterly': 3,
+        'Half-Year': 6,
+        'Half Year': 6,
+        'Yearly': 12,
+    }
+    total_amount = unit_price * multipliers.get(subscription_period, 1) * quantity
+    return unit_price, quantity, total_amount
+
+
+def build_registration_receipt_document(application: dict[str, Any], company_address: str, approved_by: str) -> dict[str, Any]:
+    unit_price, quantity, total_amount = get_registration_receipt_totals(application)
+    vehicles = application.get('vehicles') or normalize_vehicles(application)
+    vehicle_plate_numbers = [
+        str(vehicle.get('vehicleNumber') or '').strip().upper()
+        for vehicle in vehicles
+        if str(vehicle.get('vehicleNumber') or '').strip()
+    ]
+    if not vehicle_plate_numbers and application.get('vehicleNumber'):
+        vehicle_plate_numbers = [str(application.get('vehicleNumber')).strip().upper()]
+
+    return {
+        'renewalType': application.get('parkingType') or 'Individual Renewal',
+        'customerName': application.get('fullName') or '',
+        'customerEmail': application.get('email') or '',
+        'companyName': application.get('companyName') or '',
+        'companyAddress': company_address,
+        'receiptNumber': generate_receipt_number(application.get('referenceNumber') or ''),
+        'parkingType': application.get('parkingType') or 'Individual Renewal',
+        'subscriptionMonth': application.get('subscriptionPeriod') or '',
+        'vehiclePlateNumbers': vehicle_plate_numbers,
+        'quantity': quantity,
+        'unitPrice': unit_price,
+        'totalAmount': total_amount,
+        'additionalNotes': '-',
+        'approvedBy': approved_by,
+        'approvedAt': datetime.now(timezone.utc),
+        'grandTotal': total_amount,
+    }
 
 
 async def upload_receipt(file: UploadFile) -> str:
@@ -661,17 +1025,410 @@ async def upload_receipt(file: UploadFile) -> str:
     return result['secure_url']
 
 
+
+async def upload_renewal_receipt(file: UploadFile) -> str:
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail='Receipt file is empty')
+
+    result = cloudinary.uploader.upload(
+        contents,
+        resource_type='auto',
+        folder='hispeedcity/renewals',
+        public_id=f'renewal-receipt-{uuid.uuid4().hex}',
+    )
+    return result['secure_url']
+
+
+def normalize_plate_numbers(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    cleaned = []
+    for value in values:
+        plate = str(value or '').strip().upper()
+        if plate:
+            cleaned.append(plate)
+    return list(dict.fromkeys(cleaned))
+
+
+def normalize_tenant_plate_groups(values: Any) -> dict[str, list[str]]:
+    if not isinstance(values, dict):
+        return {}
+    grouped: dict[str, list[str]] = {}
+    for key in ('non_reserved', 'reserved', 'premium'):
+        grouped[key] = normalize_plate_numbers(values.get(key, []))
+    return grouped
+
+
+def calculate_tenant_total(quantities: dict[str, int], price_records: list[dict[str, Any]]) -> dict[str, int]:
+    price_map = {item['key']: int(item.get('monthlyPrice', 0)) for item in price_records}
+    totals = {
+        'non_reservedTotal': int(quantities.get('non_reserved', 0)) * price_map.get('non_reserved', 0),
+        'reservedTotal': int(quantities.get('reserved', 0)) * price_map.get('reserved', 0),
+        'premiumTotal': int(quantities.get('premium', 0)) * price_map.get('premium', 0),
+    }
+    totals['grandTotal'] = totals['non_reservedTotal'] + totals['reservedTotal'] + totals['premiumTotal']
+    return totals
+
+
+async def next_renewal_reference() -> str:
+    year = datetime.now(timezone.utc).year
+    counter_id = f'renewals-{year}'
+    counter = await db.counters.find_one_and_update(
+        {'_id': counter_id},
+        {'$inc': {'seq': 1}},
+        upsert=True,
+        return_document=True,
+    )
+    if not counter:
+        counter = {'seq': 1}
+    sequence = counter.get('seq', 1)
+    return f'RN-{year}-{sequence:06d}'
+
+
+@api_router.post('/renewals', response_model=RenewalCreateResponse)
+async def create_individual_renewal(
+    renewalData: str = Form(...),
+    receipt: Optional[UploadFile] = File(None),
+):
+    import json
+
+    try:
+        payload = json.loads(renewalData)
+    except Exception:
+        raise HTTPException(status_code=400, detail='Invalid renewal data')
+
+    renewal_type = str(payload.get('renewalType') or '').strip() or 'Individual'
+    if renewal_type != 'Individual':
+        raise HTTPException(status_code=400, detail='Only Individual renewal is supported at this time')
+
+    full_name = str(payload.get('fullName') or '').strip()
+    if not full_name:
+        raise HTTPException(status_code=400, detail='Full Name is required')
+
+    email = normalize_email_address(payload.get('email'))
+
+    month_note = str(payload.get('renewalMonthNote') or '').strip()
+    if not month_note:
+        raise HTTPException(status_code=400, detail='Renewal Month / Payment Note is required')
+
+    raw_plates = payload.get('vehiclePlateNumbers')
+    if not isinstance(raw_plates, list):
+        raise HTTPException(status_code=400, detail='Vehicle plate numbers must be provided as a list')
+
+    cleaned_plates = []
+    for plate in raw_plates:
+        cleaned = str(plate or '').strip().upper()
+        if cleaned:
+            cleaned_plates.append(cleaned)
+
+    # Preserve input order while removing duplicates.
+    unique_plates = list(dict.fromkeys(cleaned_plates))
+
+    if not unique_plates:
+        raise HTTPException(status_code=400, detail='At least one vehicle plate number is required')
+    if len(unique_plates) > 3:
+        raise HTTPException(status_code=400, detail='A maximum of 3 vehicle plate numbers is allowed')
+
+    if receipt is None:
+        raise HTTPException(status_code=400, detail='Payment receipt is required')
+
+    receipt_url = await upload_renewal_receipt(receipt)
+    submitted_at = datetime.now(timezone.utc)
+    renewal_reference = await next_renewal_reference()
+
+    renewal_doc = {
+        'renewalReference': renewal_reference,
+        'renewalType': 'Individual',
+        'fullName': full_name,
+        'email': email,
+        'vehiclePlateNumbers': unique_plates,
+        'renewalMonthNote': month_note,
+        'receiptUrl': receipt_url,
+        'status': STATUS_PENDING,
+        'submittedAt': submitted_at,
+        'updatedAt': submitted_at,
+    }
+
+    await db.renewals.insert_one(renewal_doc)
+
+    return RenewalCreateResponse(
+        message='Renewal request submitted successfully',
+        renewalReference=renewal_reference,
+        email=email,
+        status=STATUS_PENDING,
+        submittedAt=submitted_at,
+    )
+
+
+@api_router.post('/renewals/tenant', response_model=RenewalCreateResponse)
+async def create_tenant_renewal(
+    renewalData: str = Form(...),
+    receipt: Optional[UploadFile] = File(None),
+):
+    import json
+
+    try:
+        payload = json.loads(renewalData)
+    except Exception:
+        raise HTTPException(status_code=400, detail='Invalid renewal data')
+
+    renewal_type = str(payload.get('renewalType') or '').strip() or 'Tenant'
+    if renewal_type != 'Tenant':
+        raise HTTPException(status_code=400, detail='Only Tenant renewal is supported at this time')
+
+    company_name = str(payload.get('companyName') or '').strip()
+    contact_person = str(payload.get('contactPerson') or '').strip()
+    email = normalize_email_address(payload.get('email'))
+    phone_number = str(payload.get('phoneNumber') or '').strip()
+    month_note = str(payload.get('renewalMonthNote') or '').strip()
+    if not all([company_name, contact_person, email, phone_number, month_note]):
+        raise HTTPException(status_code=400, detail='All company and contact fields are required')
+
+    quantities_raw = payload.get('parkingQuantities')
+    if not isinstance(quantities_raw, dict):
+        raise HTTPException(status_code=400, detail='Parking quantities are required')
+
+    try:
+        quantities = {
+            'non_reserved': max(0, int(quantities_raw.get('non_reserved', 0) or 0)),
+            'reserved': max(0, int(quantities_raw.get('reserved', 0) or 0)),
+            'premium': max(0, int(quantities_raw.get('premium', 0) or 0)),
+        }
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail='Parking quantities must be whole numbers')
+
+    plate_groups = normalize_tenant_plate_groups(payload.get('vehiclePlateNumbers'))
+    for key, quantity in quantities.items():
+        if quantity > 0 and len(plate_groups.get(key, [])) != quantity:
+            raise HTTPException(status_code=400, detail=f'{key.replace("_", " ").title()} vehicle plate list must match the selected quantity')
+
+    price_records = get_parking_price_records()
+    totals = calculate_tenant_total(quantities, price_records)
+
+    if receipt is None:
+        raise HTTPException(status_code=400, detail='Payment receipt is required')
+
+    receipt_url = await upload_renewal_receipt(receipt)
+    submitted_at = datetime.now(timezone.utc)
+    renewal_reference = await next_renewal_reference()
+
+    renewal_doc = {
+        'renewalReference': renewal_reference,
+        'renewalType': 'Tenant',
+        'companyName': company_name,
+        'contactPerson': contact_person,
+        'email': email,
+        'phoneNumber': phone_number,
+        'renewalMonthNote': month_note,
+        'parkingQuantities': quantities,
+        'vehiclePlateNumbers': plate_groups,
+        'pricingBreakdown': {
+            'parkingPrices': {item['key']: item['monthlyPrice'] for item in price_records},
+            **totals,
+        },
+        'receiptUrl': receipt_url,
+        'status': STATUS_PENDING,
+        'submittedAt': submitted_at,
+        'updatedAt': submitted_at,
+    }
+
+    await db.renewals.insert_one(renewal_doc)
+
+    return RenewalCreateResponse(
+        message='Renewal request submitted successfully',
+        renewalReference=renewal_reference,
+        email=email,
+        status=STATUS_PENDING,
+        submittedAt=submitted_at,
+    )
+
+
+@api_router.get('/admin/renewals')
+async def list_renewals(_: str = Depends(require_admin)):
+    cursor = db.renewals.find({}).sort('submittedAt', -1)
+    renewals = []
+    async for doc in cursor:
+        renewals.append(serialize_doc(doc))
+    return {'renewals': renewals}
+
+
+@api_router.get('/admin/renewals/{renewal_reference}')
+async def get_renewal(renewal_reference: str, _: str = Depends(require_admin)):
+    renewal = await db.renewals.find_one({'renewalReference': renewal_reference})
+    if not renewal:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+    return {'renewal': serialize_doc(renewal)}
+
+
+@api_router.patch('/admin/renewals/{renewal_reference}/status')
+async def update_renewal_status(
+    renewal_reference: str,
+    payload: StatusUpdateRequest,
+    _: str = Depends(require_admin),
+):
+    if payload.status not in ALLOWED_STATUSES:
+        raise HTTPException(status_code=400, detail='Invalid status value')
+
+    result = await db.renewals.find_one_and_update(
+        {'renewalReference': renewal_reference},
+        {'$set': {'status': payload.status, 'updatedAt': datetime.now(timezone.utc)}},
+        return_document=True,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+
+    return {'message': 'Renewal status updated', 'renewal': serialize_doc(result)}
+
+
+@api_router.post('/admin/renewals/{renewal_reference}/approve')
+async def approve_renewal(
+    renewal_reference: str,
+    payload: RenewalApprovalRequest,
+    username: str = Depends(require_admin),
+):
+    renewal = await db.renewals.find_one({'renewalReference': renewal_reference})
+    if not renewal:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+
+    if str(renewal.get('renewalType') or '').strip() != 'Individual':
+        raise HTTPException(status_code=400, detail='Approval receipt form is only available for Individual renewal requests')
+
+    if renewal.get('status') == STATUS_APPROVED:
+        raise HTTPException(status_code=400, detail='Renewal request is already approved')
+
+    company_name = normalize_required_text(payload.companyName, 'Company Name')
+    company_address = normalize_required_text(payload.companyAddress, 'Company Address')
+    product_month = normalize_required_text(payload.productMonth, 'Product / Subscription Month')
+    parking_type = normalize_required_text(payload.parkingType, 'Parking Type')
+    receipt_number = str(payload.receiptNumber or '').strip() or generate_receipt_number(renewal_reference)
+    additional_notes = str(payload.additionalNotes or '').strip()
+    quantity = coerce_positive_int(payload.quantity, 'Quantity')
+    unit_price = coerce_positive_int(payload.unitPrice, 'Unit Price')
+    total_amount = coerce_positive_int(payload.totalAmount, 'Total Amount')
+
+    expected_total = quantity * unit_price
+    if total_amount != expected_total:
+        raise HTTPException(status_code=400, detail='Total Amount must equal Quantity multiplied by Unit Price')
+
+    customer_name = str(renewal.get('fullName') or renewal.get('contactPerson') or '').strip()
+    customer_email = str(renewal.get('email') or '').strip()
+    vehicle_plate_numbers = renewal.get('vehiclePlateNumbers') or []
+
+    receipt_info = {
+        'customerName': customer_name,
+        'customerEmail': customer_email,
+        'vehiclePlateNumbers': vehicle_plate_numbers,
+        'companyName': company_name,
+        'companyAddress': company_address,
+        'receiptNumber': receipt_number,
+        'productMonth': product_month,
+        'parkingType': parking_type,
+        'quantity': quantity,
+        'unitPrice': unit_price,
+        'totalAmount': total_amount,
+        'additionalNotes': additional_notes,
+        'approvedBy': username,
+        'approvedAt': datetime.now(timezone.utc),
+        'lineItems': [
+            {
+                'item': 1,
+                'productName': parking_type,
+                'description': product_month,
+                'qty': quantity,
+                'unitPrice': unit_price,
+                'totalPrice': total_amount,
+            }
+        ],
+    }
+
+    try:
+        receipt_artifact = await generate_renewal_receipt_pdf(renewal, receipt_info=receipt_info)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f'Failed to generate renewal receipt PDF: {exc}') from exc
+
+    email_status = 'Failed'
+    email_sent_at = None
+    email_error_message = None
+    email_provider_message_id = None
+
+    try:
+        email_text, email_html = build_renewal_receipt_email_message(customer_name or 'Customer', receipt_number)
+        email_result = await run_in_threadpool(
+            send_email_with_attachment,
+            to_email=customer_email,
+            subject='Parking Renewal Receipt',
+            text_body=email_text,
+            html_body=email_html,
+            attachment_filename=f'{receipt_number}.pdf',
+            attachment_bytes=receipt_artifact.pdf_bytes,
+            from_email='hi@hispeedcity.com',
+        )
+        email_status = email_result.status
+        email_sent_at = email_result.sent_at
+        email_provider_message_id = email_result.provider_message_id
+    except Exception as exc:
+        email_error_message = str(exc)
+
+    approved_at = datetime.now(timezone.utc)
+    result = await db.renewals.find_one_and_update(
+        {'renewalReference': renewal_reference},
+        {
+            '$set': {
+                'status': STATUS_APPROVED,
+                'receiptInfo': receipt_info,
+                'approvedBy': username,
+                'approvedAt': approved_at,
+                'emailStatus': email_status,
+                'emailSentAt': email_sent_at,
+                'emailErrorMessage': email_error_message,
+                'emailProviderMessageId': email_provider_message_id,
+                'updatedAt': approved_at,
+            }
+        },
+        return_document=ReturnDocument.AFTER,
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+
+    return {
+        'message': 'Renewal approved successfully',
+        'receiptPdfGenerated': True,
+        'receiptPdfPath': str(receipt_artifact.pdf_path),
+        'receiptPdfSizeBytes': len(receipt_artifact.pdf_bytes),
+        'emailStatus': email_status,
+        'emailSentAt': email_sent_at,
+        'emailErrorMessage': email_error_message,
+        'renewal': serialize_doc(result),
+    }
+
+
+@api_router.get('/renewals/reference/{renewal_reference}')
+async def get_public_renewal_by_reference(renewal_reference: str):
+    renewal = await db.renewals.find_one({'renewalReference': renewal_reference})
+    if not renewal:
+        raise HTTPException(status_code=404, detail='Renewal request not found')
+    return serialize_doc(renewal)
+
 @api_router.post('/applications', response_model=ApplicationCreateResponse)
 async def create_application(
     applicationData: str = Form(...),
-    receipt: UploadFile = File(...),
+    receipt: Optional[UploadFile] = File(None),
 ):
     import json
+    import re
 
     try:
         payload = json.loads(applicationData)
     except Exception:
         raise HTTPException(status_code=400, detail='Invalid application data')
+
+    # Application type determines whether payment/receipt is required
+    application_type = (payload.get('applicationType') or 'registration').strip().lower()
+    if application_type not in {'registration', 'deregistration', 'edit_remove'}:
+        application_type = 'registration'
+    payment_required = application_type == 'registration'
 
     vehicles = payload.get('vehicles') or []
     if not vehicles:
@@ -679,13 +1436,44 @@ async def create_application(
 
     first_vehicle = vehicles[0]
     if not all([
-        payload.get('fullName'), payload.get('phoneNumber'), payload.get('companyName'), payload.get('staffId'),
+        payload.get('fullName'), payload.get('phoneNumber'), payload.get('companyName'),
         first_vehicle.get('vehicleNumber'), first_vehicle.get('vehicleModel'), first_vehicle.get('vehicleType'), first_vehicle.get('vehicleColor'),
         payload.get('parkingType'), payload.get('subscriptionPeriod')
     ]):
         raise HTTPException(status_code=400, detail='Missing required fields')
 
-    receipt_url = await upload_receipt(receipt)
+    # Email validation
+    email_raw = payload.get('email')
+    if not email_raw or not str(email_raw).strip():
+        raise HTTPException(status_code=400, detail='Customer email is required')
+    email_clean = str(email_raw).strip()
+    email_regex = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    if not email_regex.match(email_clean):
+        raise HTTPException(status_code=400, detail='Invalid email format')
+
+    # Remarks are required for edit_remove
+    remarks_raw = payload.get('remarks') or ''
+    remarks_clean = str(remarks_raw).strip()
+    if application_type == 'edit_remove' and not remarks_clean:
+        raise HTTPException(status_code=400, detail='Remarks / Notes are required for Edit / Remove Vehicle requests')
+
+    parking_key = parking_type_to_key(payload.get('parkingType'))
+    if not parking_key:
+        raise HTTPException(status_code=400, detail='Invalid parking type selected')
+
+    parking_availability_map = await get_parking_availability_map()
+    parking_record = parking_availability_map.get(parking_key)
+    if not parking_record:
+        raise HTTPException(status_code=400, detail='Invalid parking type selected')
+    if not parking_record.get('available', True):
+        raise HTTPException(status_code=400, detail=f'{parking_type_to_label(payload.get("parkingType"))} is sold out. Please choose another parking type.')
+
+    # Receipt is only required for paid (registration) applications
+    receipt_url = ''
+    if payment_required:
+        if receipt is None:
+            raise HTTPException(status_code=400, detail='Payment receipt is required')
+        receipt_url = await upload_receipt(receipt)
 
     year = datetime.now(timezone.utc).year
     counter_id = f'applications-{year}'
@@ -706,10 +1494,14 @@ async def create_application(
 
     document = {
         'referenceNumber': reference_number,
+        'applicationType': application_type,
+        'paymentRequired': payment_required,
+        'remarks': remarks_clean,
         'fullName': payload.get('fullName'),
         'phoneNumber': payload.get('phoneNumber'),
+        'email': email_clean,
         'companyName': payload.get('companyName'),
-        'staffId': payload.get('staffId'),
+        'staffId': (payload.get('staffId') or '').strip(),
         'vehicleNumber': first_vehicle.get('vehicleNumber'),
         'vehicleModel': first_vehicle.get('vehicleModel'),
         'vehicleType': first_vehicle.get('vehicleType'),
@@ -751,6 +1543,7 @@ async def startup_event():
                 'passwordHash': hash_password(ADMIN_PASSWORD).decode('utf-8'),
                 'createdAt': datetime.now(timezone.utc),
             })
+        await seed_default_parking_settings()
     except Exception as exc:
         print(f'Application startup warning: database initialization skipped: {exc}')
 

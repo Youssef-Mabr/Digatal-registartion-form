@@ -209,11 +209,22 @@ function calculateTotalAmount() {
 
 // Helper function to get personal information
 function getPersonalInformation() {
+    const emailInput = document.getElementById('email');
+    const emailValue = (emailInput.value || '').trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailValue) {
+        throw new Error('Customer Email is required');
+    }
+    if (!emailRegex.test(emailValue)) {
+        throw new Error('Please enter a valid email address');
+    }
+
     return {
         fullName: document.getElementById('fullName').value,
         phoneNumber: document.getElementById('phoneNumber').value,
+        email: emailValue,
         companyName: document.getElementById('companyName').value,
-        staffId: document.getElementById('staffId').value,
+        staffId: (document.getElementById('staffId').value || '').trim(),
         numberOfCars: numberOfVehicles
     };
 }
@@ -284,6 +295,7 @@ window.addEventListener('DOMContentLoaded', function() {
     // Populate personal fields
     document.getElementById('fullName').value = data.fullName || '';
     document.getElementById('phoneNumber').value = data.phoneNumber || '';
+    document.getElementById('email').value = data.email || '';
     document.getElementById('companyName').value = data.companyName || '';
     document.getElementById('staffId').value = data.staffId || '';
     

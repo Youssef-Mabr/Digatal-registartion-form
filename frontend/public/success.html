@@ -24,6 +24,10 @@
                 <h1 data-testid="success-title">Application Submitted Successfully</h1>
                 <div class="success-details">
                     <div class="success-item">
+                        <span class="success-label">Application Type:</span>
+                        <span class="success-value" id="applicationTypeValue" data-testid="success-app-type"></span>
+                    </div>
+                    <div class="success-item">
                         <span class="success-label">Reference Number:</span>
                         <span class="success-value" id="referenceNumber" data-testid="reference-number"></span>
                     </div>
@@ -35,13 +39,21 @@
                         <span class="success-label">Submission Date:</span>
                         <span class="success-value" id="submissionDate" data-testid="submission-date"></span>
                     </div>
+                    <div class="success-item">
+                        <span class="success-label">Submission Time:</span>
+                        <span class="success-value" id="submissionTime" data-testid="submission-time"></span>
+                    </div>
                 </div>
-                <p class="success-message">Your application has been received and is currently under review. You will be notified within 48 hours.</p>
-                <button class="btn btn-primary" onclick="returnHome()" data-testid="return-home-btn">Return to Home</button>
+                <p class="success-message" id="successMessage" data-testid="success-message">Your application has been received and is currently under review. You will be notified within 48 hours.</p>
+                <div class="form-actions" style="justify-content:center;gap:12px;flex-wrap:wrap;">
+                    <button class="btn btn-secondary" id="downloadFormBtn" data-testid="download-form-btn">Download Submission Form</button>
+                    <button class="btn btn-primary" onclick="returnHome()" data-testid="return-home-btn">Return to Home</button>
+                </div>
             </div>
         </div>
     </div>
 
+    <script src="pdf-utils.js"></script>
     <script src="success.js"></script>
 </body>
 </html>

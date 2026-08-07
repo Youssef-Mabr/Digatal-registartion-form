@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Type - Hispeedcity</title>
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        html,body{background:#F5F5F5;margin:0;padding:0;}
+        .app-type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin:32px 0;}
+        .app-type-card{background:#fff;border:2px solid #e5e7eb;border-radius:14px;padding:28px 22px;cursor:pointer;transition:all .2s ease;display:flex;flex-direction:column;align-items:flex-start;text-align:left;}
+        .app-type-card:hover{border-color:#00c853;box-shadow:0 8px 24px rgba(0,200,83,.12);transform:translateY(-2px);}
+        .app-type-icon{width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#00c853,#00e676);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:14px;}
+        .app-type-title{font-size:18px;font-weight:700;color:#111827;margin:0 0 6px;}
+        .app-type-desc{font-size:13.5px;color:#4b5563;line-height:1.55;margin:0;}
+        .app-type-badge{margin-top:14px;font-size:12px;padding:4px 10px;border-radius:999px;background:#ecfdf5;color:#065f46;font-weight:600;}
+        .app-type-badge.warn{background:#fff7ed;color:#9a3412;}
+    </style>
+</head>
+<body>
+    <div class="page">
+        <nav class="navbar">
+            <div class="container">
+                <div class="logo" onclick="window.location.href='index.html'" style="cursor:pointer;">
+                    <span class="logo-text">Hi<span class="logo-highlight">speedcity</span></span>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="form-container">
+                <div class="form-header">
+                    <h1 data-testid="app-type-title">Choose Your Application Type</h1>
+                    <p class="form-note">Select the type of request you would like to submit.</p>
+                </div>
+
+                <div class="app-type-grid">
+                    <div class="app-type-card" data-testid="card-registration" onclick="selectApplicationType('registration')">
+                        <div class="app-type-icon">🚗</div>
+                        <h3 class="app-type-title">New Registration</h3>
+                        <p class="app-type-desc">Register a new season parking subscription for one or more vehicles. Payment and receipt upload required.</p>
+                        <span class="app-type-badge">Payment required</span>
+                    </div>
+
+                    <div class="app-type-card" data-testid="card-deregistration" onclick="selectApplicationType('deregistration')">
+                        <div class="app-type-icon">🗑️</div>
+                        <h3 class="app-type-title">Deregistration</h3>
+                        <p class="app-type-desc">Cancel an existing season parking subscription. No payment required.</p>
+                        <span class="app-type-badge warn">No payment</span>
+                    </div>
+
+                    <div class="app-type-card" data-testid="card-edit-remove" onclick="selectApplicationType('edit_remove')">
+                        <div class="app-type-icon">✏️</div>
+                        <h3 class="app-type-title">Edit / Remove Vehicle</h3>
+                        <p class="app-type-desc">Add, replace or remove a vehicle from an active subscription. Please include a note explaining the change.</p>
+                        <span class="app-type-badge warn">No payment</span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='index.html'" data-testid="back-home-btn">Back to Home</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="application-type.js"></script>
+</body>
+</html>

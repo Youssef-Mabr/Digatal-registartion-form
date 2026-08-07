@@ -56,12 +56,16 @@ window.addEventListener('DOMContentLoaded', function() {
                 <span class="detail-value">${app.phoneNumber}</span>
             </div>
             <div class="detail-row">
+                <span class="detail-label">Customer Email:</span>
+                <span class="detail-value" data-testid="detail-email">${app.email || '-'}</span>
+            </div>
+            <div class="detail-row">
                 <span class="detail-label">Company Name:</span>
                 <span class="detail-value">${app.companyName}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Staff ID:</span>
-                <span class="detail-value">${app.staffId}</span>
+                <span class="detail-value">${app.staffId || '-'}</span>
             </div>
         </div>
         

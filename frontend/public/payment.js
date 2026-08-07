@@ -15,6 +15,27 @@ window.addEventListener('DOMContentLoaded', function() {
     if (!data) {
         return;
     }
+    // Guard: payment page is only for New Registration flow.
+    if (data.applicationType && data.applicationType !== 'registration') {
+        window.location.href = 'review.html';
+        return;
+    }
+
+    const parkingType = data.parkingType;
+    if (!parkingType) {
+        window.location.href = 'registration.html';
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+        submitBtn.dataset.originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Checking availability...';
+    }
+
+    loadParkingAvailabilityForPayment(parkingType);
+
     document.getElementById('paymentAmount').textContent = `RM ${data.totalAmount}`;
     
     // Upload area click handler
@@ -38,19 +59,23 @@ window.addEventListener('DOMContentLoaded', function() {
                 receiptUpload.value = '';
                 return;
             }
-            
-            // Validate file type
-            if (!file.type.match('image.*')) {
-                showAppMessage('Please upload an image file.', 'warning');
+
+            // Validate file type (JPG, JPEG, PNG only)
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+            const fileName = (file.name || '').toLowerCase();
+            const extOk = /\.(jpg|jpeg|png)$/i.test(fileName);
+            if (!allowedTypes.includes(file.type) && !extOk) {
+                showAppMessage('Unsupported file format. Please upload JPG, JPEG or PNG only.', 'warning');
                 receiptUpload.value = '';
                 return;
             }
-            
-            // Read and display image
+
+            // Read and display the image preview
             const reader = new FileReader();
             reader.onload = function(event) {
                 uploadedReceipt = event.target.result;
                 previewImage.src = event.target.result;
+                previewImage.style.display = '';
                 uploadPlaceholder.style.display = 'none';
                 uploadPreview.style.display = 'block';
             };
@@ -83,8 +108,10 @@ window.addEventListener('DOMContentLoaded', function() {
                 const result = await requestFormData('/applications', formData, {
                     loadingMessage: 'Submitting your application...'
                 });
+                // Merge full submitted application data with server response for downstream pages
+                const fullSubmission = Object.assign({}, data, result);
                 sessionStorage.removeItem('currentApplication');
-                sessionStorage.setItem('lastSubmission', JSON.stringify(result));
+                sessionStorage.setItem('lastSubmission', JSON.stringify(fullSubmission));
                 window.location.href = 'success.html';
             } catch (error) {
                 showAppMessage(error.message, 'error', 'Submission failed');
@@ -95,3 +122,32 @@ window.addEventListener('DOMContentLoaded', function() {
         submitApplication();
     });
 });
+
+async function loadParkingAvailabilityForPayment(parkingType) {
+    try {
+        const parkingAvailability = await fetchParkingAvailability({ skipLoading: true });
+        const parkingAvailabilityMap = normalizeParkingAvailability(parkingAvailability);
+        const key = getParkingTypeKey(parkingType);
+        const record = key ? parkingAvailabilityMap[key] : null;
+        const submitBtn = document.getElementById('submitBtn');
+
+        if (record && record.available === false) {
+            showAppMessage(`${getParkingTypeLabel(parkingType)} is sold out. Please choose another parking type.`, 'warning', 'Parking sold out');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Parking Sold Out';
+            }
+            setTimeout(() => {
+                window.location.href = 'registration.html';
+            }, 1500);
+            return;
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = submitBtn.dataset.originalText || 'Submit Application';
+        }
+    } catch (error) {
+        console.warn('Unable to verify parking availability before payment.', error);
+    }
+}

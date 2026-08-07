@@ -25,7 +25,7 @@ This is a **front-end only prototype** designed for presentation to management. 
 
 ### Accessing the Prototype
 
-**Live URL:** https://smart-parking-reg.preview.emergentagent.com/
+**Live URL:** https://parking-email-field.preview.emergentagent.com/
 
 **Available Pages:**
 - Landing Page: `/index.html`
@@ -179,7 +179,7 @@ This is a **prototype only**. For production:
 ## 🚀 Deployment
 
 This prototype is already deployed and accessible at:
-**https://smart-parking-reg.preview.emergentagent.com/**
+**https://parking-email-field.preview.emergentagent.com/**
 
 To deploy elsewhere:
 1. Copy all files from `/app/frontend/public/`

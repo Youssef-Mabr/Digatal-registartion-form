@@ -13,8 +13,9 @@ window.addEventListener('DOMContentLoaded', function() {
     // Populate personal information
     document.getElementById('review-fullName').textContent = data.fullName;
     document.getElementById('review-phoneNumber').textContent = data.phoneNumber;
+    document.getElementById('review-email').textContent = data.email || '';
     document.getElementById('review-companyName').textContent = data.companyName;
-    document.getElementById('review-staffId').textContent = data.staffId;
+    document.getElementById('review-staffId').textContent = data.staffId || '-';
     
     // Create vehicle information section
     const vehicleSection = document.querySelector('.review-container').children[1];
@@ -53,9 +54,9 @@ window.addEventListener('DOMContentLoaded', function() {
     // Update parking subscription
     const parkingTypeText = data.parkingType;
     let price = 0;
-    if (parkingTypeText.includes('Non Reserved')) price = 150;
-    else if (parkingTypeText.includes('Reserved')) price = 200;
-    else if (parkingTypeText.includes('Premium')) price = 300;
+    if (parkingTypeText.includes('Non Reserved')) price = 159;
+    else if (parkingTypeText.includes('Reserved')) price = 212;
+    else if (parkingTypeText.includes('Premium')) price = 318;
     
     document.getElementById('review-parkingType').textContent = `${data.parkingType} (RM${price} per car)`;
     document.getElementById('review-subscriptionPeriod').textContent = data.subscriptionPeriod;

@@ -27,6 +27,21 @@
 
                 <div class="review-container" data-testid="review-container">
                     <div class="review-section">
+                        <h2>Application Details</h2>
+                        <div class="review-item">
+                            <span class="review-label">Application Type:</span>
+                            <span class="review-value" id="review-applicationType" data-testid="review-app-type"></span>
+                        </div>
+                    </div>
+
+                    <div class="review-section" id="review-remarks-section" data-testid="review-remarks-section" style="display:none;">
+                        <h2>Remarks / Notes</h2>
+                        <div class="review-item" style="flex-direction:column;align-items:flex-start;">
+                            <span class="review-value" id="review-remarks" data-testid="review-remarks" style="white-space:pre-wrap;line-height:1.55;"></span>
+                        </div>
+                    </div>
+
+                    <div class="review-section">
                         <h2>Personal Information</h2>
                         <div class="review-item">
                             <span class="review-label">Full Name:</span>
@@ -35,6 +50,10 @@
                         <div class="review-item">
                             <span class="review-label">Phone Number:</span>
                             <span class="review-value" id="review-phoneNumber" data-testid="review-phone"></span>
+                        </div>
+                        <div class="review-item">
+                            <span class="review-label">Customer Email:</span>
+                            <span class="review-value" id="review-email" data-testid="review-email"></span>
                         </div>
                         <div class="review-item">
                             <span class="review-label">Company Name:</span>
@@ -66,7 +85,7 @@
                         </div>
                     </div>
 
-                    <div class="review-section">
+                    <div class="review-section" id="review-parking-section" data-testid="review-parking-section">
                         <h2>Parking Subscription</h2>
                         <div class="review-item">
                             <span class="review-label">Parking Type:</span>
@@ -76,7 +95,7 @@
                             <span class="review-label">Subscription Period:</span>
                             <span class="review-value" id="review-subscriptionPeriod" data-testid="review-subscription"></span>
                         </div>
-                        <div class="review-item total-amount">
+                        <div class="review-item total-amount" id="review-total-row" data-testid="review-total-row">
                             <span class="review-label">Total Amount:</span>
                             <span class="review-value" id="review-totalAmount" data-testid="review-total-amount"></span>
                         </div>
@@ -85,12 +104,14 @@
 
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="window.location.href='registration.html'" data-testid="edit-info-btn">Edit Information</button>
-                    <button type="button" class="btn btn-primary" onclick="window.location.href='payment.html'" data-testid="proceed-payment-btn">Proceed to Payment</button>
+                    <button type="button" class="btn btn-primary" id="proceedBtn" data-testid="proceed-payment-btn">Proceed to Payment</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <script src="config.js"></script>
+    <script src="api.js"></script>
     <script src="review.js"></script>
 </body>
 </html>

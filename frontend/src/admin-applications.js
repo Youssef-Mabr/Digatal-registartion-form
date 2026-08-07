@@ -2,17 +2,50 @@
 window.addEventListener('DOMContentLoaded', function() {
     const applications = JSON.parse(localStorage.getItem('applications') || '[]');
     const applicationsList = document.getElementById('applicationsList');
+    const searchInput = document.getElementById('applicationsSearch');
     
-    if (applications.length === 0) {
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            renderApplications(applications, searchInput.value);
+        });
+    }
+
+    renderApplications(applications, searchInput ? searchInput.value : '');
+});
+
+function renderApplications(applications, searchValue) {
+    const applicationsList = document.getElementById('applicationsList');
+    const normalizedSearch = (searchValue || '').trim().toLowerCase();
+    const filtered = applications
+        .slice()
+        .sort((a, b) => new Date(b.submissionDate) - new Date(a.submissionDate))
+        .filter(app => {
+            if (!normalizedSearch) {
+                return true;
+            }
+
+            const searchableText = [app.fullName, app.vehicleNumber, app.referenceNumber]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return searchableText.includes(normalizedSearch);
+        });
+
+    const badge = document.getElementById('appCountBadge');
+    if (badge) {
+        badge.textContent = `${filtered.length} application${filtered.length === 1 ? '' : 's'}`;
+    }
+
+    if (filtered.length === 0) {
         applicationsList.innerHTML = '<div style="text-align:center;padding:40px;color:#757575;">No applications found</div>';
         return;
     }
-    
-    // Sort by date (newest first)
-    applications.sort((a, b) => new Date(b.submissionDate) - new Date(a.submissionDate));
-    
+
+    applicationsList.innerHTML = '';
+
     // Generate application cards
-    applications.forEach((app, index) => {
+    filtered.forEach((app, index) => {
         const date = new Date(app.submissionDate);
         const formattedDate = date.toLocaleDateString('en-MY', {
             day: '2-digit',
@@ -47,7 +80,7 @@ window.addEventListener('DOMContentLoaded', function() {
         
         applicationsList.appendChild(card);
     });
-});
+}
 
 function viewApplication(index) {
     // Mark as read

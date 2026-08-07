@@ -27,6 +27,12 @@
                     <button class="btn btn-secondary" onclick="window.location.href='admin-dashboard.html'" data-testid="back-dashboard-btn">Back to Dashboard</button>
                 </div>
 
+                <div class="applications-filter" style="margin:16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <label for="applicationsSearch" style="font-weight:600;color:#374151;">Search by Name or Plate:</label>
+                    <input id="applicationsSearch" type="search" placeholder="Type a name or car plate number" data-testid="applications-search-input" style="padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;background:#fff;min-width:260px;flex:1;max-width:420px;">
+                    <span id="appCountBadge" data-testid="app-count-badge" style="color:#6b7280;font-size:13px;"></span>
+                </div>
+
                 <div class="applications-list" id="applicationsList" data-testid="applications-list">
                     <!-- Applications will be populated here -->
                 </div>

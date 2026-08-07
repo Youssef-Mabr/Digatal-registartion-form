@@ -1,6 +1,85 @@
-const API_BASE_URL = window.__API_BASE_URL__ || 'https://hispeedcity-backend-635388135964.us-central1.run.app/api';
+const API_BASE_URL = window.__API_BASE_URL__ || (
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://127.0.0.1:5000/api'
+        : 'https://hispeedcity-backend-635388135964.us-central1.run.app/api'
+);
 let activeRequestCount = 0;
 let messageTimer = null;
+
+const PARKING_TYPE_META = {
+    'Non Reserved': { key: 'non_reserved', label: 'Non-Reserved Parking' },
+    Reserved: { key: 'reserved', label: 'Reserved Parking' },
+    Premium: { key: 'premium', label: 'Premium Parking' },
+};
+
+function getParkingTypeMeta(parkingType) {
+    return PARKING_TYPE_META[parkingType] || null;
+}
+
+function getParkingTypeKey(parkingType) {
+    const meta = getParkingTypeMeta(parkingType);
+    return meta ? meta.key : null;
+}
+
+function getParkingTypeLabel(parkingType) {
+    const meta = getParkingTypeMeta(parkingType);
+    return meta ? meta.label : (parkingType || 'Parking Type');
+}
+
+function normalizeParkingAvailability(items) {
+    const availabilityMap = {};
+    (Array.isArray(items) ? items : []).forEach(item => {
+        if (!item) {
+            return;
+        }
+
+        const key = item.key || getParkingTypeKey(item.parkingType);
+        if (!key) {
+            return;
+        }
+
+        availabilityMap[key] = {
+            key,
+            parkingType: item.parkingType || '',
+            label: item.label || getParkingTypeLabel(item.parkingType),
+            available: item.available !== false,
+            updatedAt: item.updatedAt || null,
+        };
+    });
+    return availabilityMap;
+}
+
+function normalizeParkingPrices(items) {
+    const priceMap = {};
+    (Array.isArray(items) ? items : []).forEach(item => {
+        if (!item) {
+            return;
+        }
+
+        const key = item.key || getParkingTypeKey(item.parkingType);
+        if (!key) {
+            return;
+        }
+
+        priceMap[key] = {
+            key,
+            parkingType: item.parkingType || '',
+            label: item.label || getParkingTypeLabel(item.parkingType),
+            monthlyPrice: Number(item.monthlyPrice || 0),
+        };
+    });
+    return priceMap;
+}
+
+async function fetchParkingAvailability(options = {}) {
+    const response = await requestJson('/parking-availability', options);
+    return Array.isArray(response.parkingAvailability) ? response.parkingAvailability : [];
+}
+
+async function fetchParkingPrices(options = {}) {
+    const response = await requestJson('/parking-prices', options);
+    return Array.isArray(response.parkingPrices) ? response.parkingPrices : [];
+}
 
 function ensureFeedbackShell() {
     if (!document.getElementById('appLoadingOverlay')) {

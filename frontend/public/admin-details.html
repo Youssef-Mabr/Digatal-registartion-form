@@ -26,6 +26,7 @@
                     <h1 data-testid="details-title">Application Details</h1>
                     <div class="details-actions">
                         <button class="btn btn-secondary" onclick="window.location.href='admin-applications.html'" data-testid="back-list-btn">Back to List</button>
+                        <button class="btn btn-secondary" id="adminDownloadFormBtn" data-testid="admin-download-form-btn">Download Submission Form</button>
                     </div>
                 </div>
 
@@ -39,9 +40,55 @@
                 </div>
             </div>
         </div>
+
+        <div class="approval-modal" id="applicationApprovalModal" hidden>
+            <div class="approval-modal__backdrop" id="applicationApprovalBackdrop"></div>
+            <div class="approval-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="applicationApprovalTitle">
+                <div class="approval-modal__header">
+                    <div>
+                        <p class="approval-modal__eyebrow">Admin Approval Form</p>
+                        <h2 id="applicationApprovalTitle">Approve New Registration</h2>
+                    </div>
+                    <button type="button" class="approval-modal__close" id="applicationApprovalCloseBtn" aria-label="Close approval form">×</button>
+                </div>
+
+                <div class="approval-modal__body">
+                    <div class="approval-modal__section">
+                        <h3>Registration Summary</h3>
+                        <div class="detail-row"><span class="detail-label">Customer Name:</span><span class="detail-value" id="approvalCustomerName">-</span></div>
+                        <div class="detail-row"><span class="detail-label">Customer Email:</span><span class="detail-value" id="approvalCustomerEmail">-</span></div>
+                        <div class="detail-row"><span class="detail-label">Company Name:</span><span class="detail-value" id="approvalCompanyName">-</span></div>
+                        <div class="detail-row"><span class="detail-label">Parking Type:</span><span class="detail-value" id="approvalParkingType">-</span></div>
+                        <div class="detail-row"><span class="detail-label">Subscription Period:</span><span class="detail-value" id="approvalSubscriptionPeriod">-</span></div>
+                        <div class="detail-row"><span class="detail-label">Vehicle Plate Number(s):</span><span class="detail-value" id="approvalVehiclePlates">-</span></div>
+                        <div class="detail-row"><span class="detail-label">Total Amount:</span><span class="detail-value" id="approvalTotalAmount">RM 0</span></div>
+                    </div>
+
+                    <form id="applicationApprovalForm" class="approval-modal__form">
+                        <div class="approval-modal__section">
+                            <h3>Receipt Information</h3>
+                            <div class="form-row">
+                                <div class="form-group full-width">
+                                    <label for="approvalCompanyAddress">Company Address *</label>
+                                    <textarea id="approvalCompanyAddress" required rows="3" placeholder="Enter company address"></textarea>
+                                </div>
+                            </div>
+                            <p class="approval-modal__note">The receipt fields will be generated automatically from the registration details.</p>
+                        </div>
+
+                        <div class="approval-modal__actions">
+                            <button type="button" class="btn btn-secondary" id="approvalCancelBtn">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="approvalConfirmBtn">Confirm Approval</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <script src="config.js"></script>
     <script src="api.js"></script>
+    <script src="pdf-utils.js"></script>
     <script src="admin-details.js"></script>
 </body>
 </html>
