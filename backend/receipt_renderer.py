@@ -24,10 +24,7 @@ DEFAULT_FOOTER_HELP_LINE = (
     "Should you have any enquiries concerning this delivery note, please contact us at +6011-14200953"
 )
 DEFAULT_FOOTER_COMPUTER_LINE = "This is computer generated receipt no signature required"
-DEFAULT_FOOTER_COMPANY_LINE = (
-    "Hispeedcity S'dn Bhd (1331446-H), Lot 29.01 Public Bank Tower, 19 Jalan Along Ah Fook, "
-    "80000 No Tel: 07-2071118 | 017-3680600"
-)
+DEFAULT_FOOTER_COMPANY_LINE = "HISPEEDCITY SDN BHD"
 
 _TEMPLATE_ENV = Environment(
     loader=FileSystemLoader(str(ROOT_DIR / "templates")),
@@ -100,11 +97,9 @@ def _normalize_plate_numbers(values: Any) -> list[str]:
 
 def _build_summary_rows_html(data: dict[str, Any]) -> str:
     rows = [
-        ("Receipt Number", data["receipt_number"]),
         ("Customer Name", data["customer_name"]),
         ("Customer Email", data["customer_email"]),
         ("Company Name", data["company_name"]),
-        ("Company Address", data["company_address_display"]),
         ("Parking Type", data["parking_type"]),
         ("Subscription Month", data["subscription_month"]),
         ("Vehicle Plate Number(s)", data["vehicle_plate_numbers_text"]),

@@ -39,36 +39,26 @@ def _build_attachment_payload(filename: str, content_bytes: bytes, content_type:
 
 def build_renewal_receipt_email_message(customer_name: str, receipt_number: str) -> tuple[str, str]:
     text_body = (
-        f"Hello {customer_name},\n\n"
-        "Your parking renewal has been approved. Your receipt is attached to this email.\n\n"
-        f"Receipt Number: {receipt_number}\n\n"
-        "Regards,\n"
-        "Hi Speed City"
+        "Please find attached detail for your booking / renewal.\n\n"
+        "We recommend you to subscribe in advanced prior to expiry as all season parking will expired on LAST DAY of the month.\n\n"
+        "If you pay in quarterly or half-yearly, we can do refund in case of termination, for remaining non-consumed month/s.\n\n"
+        "HISPEEDCITY SDN BHD\n\n"
+        "We make things easy!\n\n"
+        "Thank You"
     )
     html_body = (
-        f"<p>Hello {customer_name},</p>"
-        "<p>Your parking renewal has been approved. Your receipt is attached to this email.</p>"
-        f"<p><strong>Receipt Number:</strong> {receipt_number}</p>"
-        "<p>Regards,<br>Hi Speed City</p>"
+        "<p>Please find attached detail for your booking / renewal.</p>"
+        "<p>We recommend you to subscribe in advanced prior to expiry as all season parking will expired on LAST DAY of the month.</p>"
+        "<p>If you pay in quarterly or half-yearly, we can do refund in case of termination, for remaining non-consumed month/s.</p>"
+        "<p><strong>HISPEEDCITY SDN BHD</strong></p>"
+        "<p>We make things easy!</p>"
+        "<p>Thank You</p>"
     )
     return text_body, html_body
 
 
 def build_receipt_email_message(customer_name: str, receipt_number: str) -> tuple[str, str]:
-    text_body = (
-        f"Hello {customer_name},\n\n"
-        "Your parking request has been approved. Your receipt is attached to this email.\n\n"
-        f"Receipt Number: {receipt_number}\n\n"
-        "Regards,\n"
-        "Hi Speed City"
-    )
-    html_body = (
-        f"<p>Hello {customer_name},</p>"
-        "<p>Your parking request has been approved. Your receipt is attached to this email.</p>"
-        f"<p><strong>Receipt Number:</strong> {receipt_number}</p>"
-        "<p>Regards,<br>Hi Speed City</p>"
-    )
-    return text_body, html_body
+    return build_renewal_receipt_email_message(customer_name, receipt_number)
 
 
 def send_email_with_attachment(

@@ -46,10 +46,22 @@ def test_send_email_with_attachment_builds_resend_payload(monkeypatch) -> None:
     assert result.provider_message_id == "email_123"
 
 
-def test_build_renewal_receipt_email_message_mentions_receipt_number() -> None:
+def test_build_renewal_receipt_email_message_uses_booking_message() -> None:
     text_body, html_body = email_service.build_renewal_receipt_email_message("PDF Test User", "RCPT-123")
 
-    assert "PDF Test User" in text_body
-    assert "RCPT-123" in text_body
-    assert "PDF Test User" in html_body
-    assert "RCPT-123" in html_body
+    required_text = (
+        "Please find attached detail for your booking / renewal.\n\n"
+        "We recommend you to subscribe in advanced prior to expiry as all season parking will expired on LAST DAY of the month.\n\n"
+        "If you pay in quarterly or half-yearly, we can do refund in case of termination, for remaining non-consumed month/s.\n\n"
+        "HISPEEDCITY SDN BHD\n\n"
+        "We make things easy!\n\n"
+        "Thank You"
+    )
+
+    assert required_text in text_body
+    assert "PDF Test User" not in text_body
+    assert "RCPT-123" not in text_body
+    assert "Please find attached detail for your booking / renewal." in html_body
+    assert "HISPEEDCITY SDN BHD" in html_body
+    assert "We make things easy!" in html_body
+    assert "Thank You" in html_body

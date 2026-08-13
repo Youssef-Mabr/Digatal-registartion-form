@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -46,7 +47,7 @@ db = client[DB_NAME]
 
 
 def parse_cors_origins(raw_value: str) -> list[str]:
-    return [origin.strip().strip('"').strip("'") for origin in raw_value.split(',') if origin.strip()]
+    return [origin.strip().strip('"').strip("'") for origin in re.split(r'[\s,\\]+', raw_value) if origin.strip()]
 
 app = FastAPI(title="Hi Speed City Smart Parking API")
 app.add_middleware(
