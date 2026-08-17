@@ -43,19 +43,20 @@
         }
 
         .receipt__brand {
-            width: 150px;
+            width: 220px;
             min-height: 52px;
-            border: 3px solid #334155;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            background: #ffffff;
+            background: transparent;
+            border: none;
         }
 
         .receipt__brand img {
             width: 100%;
-            height: 100%;
+            height: auto;
+            max-height: 72px;
             object-fit: contain;
             display: block;
         }
@@ -123,6 +124,14 @@
             display: flex;
             align-items: flex-start;
             justify-content: flex-end;
+        }
+
+        .receipt__meta-datetime {
+            margin-top: 10px;
+            display: grid;
+            gap: 4px;
+            font-size: 12px;
+            line-height: 1.5;
         }
 
         .receipt__details {
@@ -244,8 +253,19 @@
         .receipt__footer {
             text-align: center;
             font-size: 12px;
-            line-height: 1.35;
+            line-height: 1.5;
             color: #1f2937;
+        }
+
+        .receipt__footer-company {
+            font-weight: 700;
+            color: #111111;
+            margin-bottom: 6px;
+        }
+
+        .receipt__footer-address {
+            font-weight: 600;
+            margin-bottom: 6px;
         }
 
         .receipt__footer small {
@@ -271,17 +291,15 @@
 
         <div class="receipt__meta">
             <div class="receipt__meta-left">
-                <div><strong>Name:</strong> {{ customer_name }}</div>
-                <div><strong>Company Name:</strong> {{ company_name }}</div>
-                <div class="receipt__meta-address">
-                    <strong>Address:</strong><br>
-                    {{ address_block }}
-                </div>
+                <div><strong>Vehicle Plate Number:</strong> {{ vehicle_plate_numbers_text }}</div>
             </div>
             <div class="receipt__meta-right">
                 <div class="receipt__number">
-                    <span class="receipt__number-label">RECEIPT Number:</span>
-                    {{ receipt_number }}
+                    <div><span class="receipt__number-label">RECEIPT Number:</span> {{ receipt_number }}</div>
+                    <div class="receipt__meta-datetime">
+                        <div><strong>Date:</strong> {{ receipt_date }}</div>
+                        <div><strong>Time:</strong> {{ receipt_time }}</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -299,9 +317,11 @@
         <div class="receipt__footer-divider"></div>
 
         <div class="receipt__footer">
+            <div class="receipt__footer-company">{{ footer_company_line }}</div>
+            <div class="receipt__footer-address">{{ footer_address_line }}</div>
             <small>{{ footer_help_line }}</small>
             <small>{{ footer_computer_line }}</small>
-            <small>{{ footer_company_line }}</small>
+            <small>{{ footer_website_line }}</small>
         </div>
     </section>
 </body>

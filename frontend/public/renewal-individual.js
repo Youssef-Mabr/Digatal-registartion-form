@@ -140,6 +140,10 @@ function validateRenewalPayload(payload, file) {
         return 'Please enter a valid email address.';
     }
 
+    if (!payload.phoneNumber) {
+        return 'Mobile Number is required.';
+    }
+
     if (!payload.vehiclePlateNumbers.length) {
         return 'At least one vehicle plate number is required.';
     }
@@ -170,6 +174,7 @@ async function submitRenewalRequest(event) {
         renewalType: 'Individual',
         fullName: (document.getElementById('fullName').value || '').trim(),
         email: (document.getElementById('email').value || '').trim(),
+        phoneNumber: (document.getElementById('phoneNumber').value || '').trim(),
         vehiclePlateNumbers: collectPlateNumbers(),
         renewalMonthNote: (document.getElementById('renewalMonthNote').value || '').trim(),
     };

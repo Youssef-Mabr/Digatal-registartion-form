@@ -39,20 +39,22 @@ def _build_attachment_payload(filename: str, content_bytes: bytes, content_type:
 
 def build_renewal_receipt_email_message(customer_name: str, receipt_number: str) -> tuple[str, str]:
     text_body = (
-        "Please find attached detail for your booking / renewal.\n\n"
-        "We recommend you to subscribe in advanced prior to expiry as all season parking will expired on LAST DAY of the month.\n\n"
-        "If you pay in quarterly or half-yearly, we can do refund in case of termination, for remaining non-consumed month/s.\n\n"
-        "HISPEEDCITY SDN BHD\n\n"
-        "We make things easy!\n\n"
-        "Thank You"
+        "Dear Valued customer,\n\n"
+        "Please find the detailed booking and renewal receipt attached for your reference.\n\n"
+        "We gently recommend renewing your season parking subscription a week prior to the expiry date. All active season parking passes will expire on the final day of each month. Failure to renew on time will result in your parking being converted to hourly visitor parking rates automatically, for reserved parking, upon expired, your parking lot will be taken by those on waiting list.\n\n"
+        "We recommend you to opt for quarterly or half-year advance payment plans, you can receive refund in case of early termination (notification to us 48 hours in advanced) for remaining non-consumed month/s\n\n"
+        "We make things easy ! Cashless Touchless Fast-Flow !\n\n"
+        "Thank you\n\n"
+        "Hispeedcity Sdn Bhd (1331446-H)"
     )
     html_body = (
-        "<p>Please find attached detail for your booking / renewal.</p>"
-        "<p>We recommend you to subscribe in advanced prior to expiry as all season parking will expired on LAST DAY of the month.</p>"
-        "<p>If you pay in quarterly or half-yearly, we can do refund in case of termination, for remaining non-consumed month/s.</p>"
-        "<p><strong>HISPEEDCITY SDN BHD</strong></p>"
-        "<p>We make things easy!</p>"
-        "<p>Thank You</p>"
+        "<p>Dear Valued customer,</p>"
+        "<p>Please find the detailed booking and renewal receipt attached for your reference.</p>"
+        "<p>We gently recommend renewing your season parking subscription a week prior to the expiry date. All active season parking passes will expire on the final day of each month. Failure to renew on time will result in your parking being converted to hourly visitor parking rates automatically, for reserved parking, upon expired, your parking lot will be taken by those on waiting list.</p>"
+        "<p>We recommend you to opt for quarterly or half-year advance payment plans, you can receive refund in case of early termination (notification to us 48 hours in advanced) for remaining non-consumed month/s</p>"
+        "<p>We make things easy ! Cashless Touchless Fast-Flow !</p>"
+        "<p>Thank you</p>"
+        "<p><strong>Hispeedcity Sdn Bhd (1331446-H)</strong></p>"
     )
     return text_body, html_body
 

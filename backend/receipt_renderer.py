@@ -6,6 +6,7 @@ import base64
 import html
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +25,9 @@ DEFAULT_FOOTER_HELP_LINE = (
     "Should you have any enquiries concerning this delivery note, please contact us at +6011-14200953"
 )
 DEFAULT_FOOTER_COMPUTER_LINE = "This is computer generated receipt no signature required"
-DEFAULT_FOOTER_COMPANY_LINE = "HISPEEDCITY SDN BHD"
+DEFAULT_FOOTER_COMPANY_LINE = "Hispeedcity Sdn Bhd (1331446-H)"
+DEFAULT_FOOTER_ADDRESS_LINE = "Lot 29.01 Public Bank Tower, 19 Jalan Along Ah Fook,"
+DEFAULT_FOOTER_WEBSITE_LINE = "hispeedcity.com"
 
 _TEMPLATE_ENV = Environment(
     loader=FileSystemLoader(str(ROOT_DIR / "templates")),
@@ -99,7 +102,7 @@ def _build_summary_rows_html(data: dict[str, Any]) -> str:
     rows = [
         ("Customer Name", data["customer_name"]),
         ("Customer Email", data["customer_email"]),
-        ("Company Name", data["company_name"]),
+        ("Customer Mobile Number", data["customer_mobile_number"]),
         ("Parking Type", data["parking_type"]),
         ("Subscription Month", data["subscription_month"]),
         ("Vehicle Plate Number(s)", data["vehicle_plate_numbers_text"]),
@@ -191,6 +194,34 @@ def load_logo_data_uri() -> str:
     return f"data:image/png;base64,{base64.b64encode(content).decode('ascii')}"
 
 
+def _format_receipt_datetime(value: Any) -> tuple[str, str]:
+    if value is None:
+        timestamp = datetime.now(timezone.utc)
+    elif isinstance(value, datetime):
+        timestamp = value
+    elif isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            timestamp = datetime.now(timezone.utc)
+        else:
+            try:
+                timestamp = datetime.fromisoformat(cleaned.replace('Z', '+00:00'))
+            except ValueError:
+                try:
+                    timestamp = datetime.fromisoformat(cleaned)
+                except ValueError:
+                    timestamp = datetime.now(timezone.utc)
+    else:
+        timestamp = datetime.now(timezone.utc)
+
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+
+    date_value = timestamp.astimezone(timezone.utc).strftime('%d %b %Y')
+    time_value = timestamp.astimezone(timezone.utc).strftime('%H:%M:%S UTC')
+    return date_value, time_value
+
+
 def build_renewal_receipt_context(
     renewal: dict[str, Any],
     receipt_info: dict[str, Any] | None = None,
@@ -207,6 +238,13 @@ def build_renewal_receipt_context(
         or "-"
     ).strip() or "-"
     customer_email = str(combined.get("customerEmail") or combined.get("email") or "-").strip() or "-"
+    customer_mobile_number = str(
+        combined.get("customerMobileNumber")
+        or combined.get("phoneNumber")
+        or combined.get("mobileNumber")
+        or combined.get("customerPhoneNumber")
+        or "-"
+    ).strip() or "-"
     company_name = str(combined.get("companyName") or combined.get("company") or "-").strip() or "-"
     company_address_value = combined.get("companyAddress") or combined.get("address") or combined.get("addressLines") or ""
 
@@ -236,12 +274,18 @@ def build_renewal_receipt_context(
         quantity * unit_price,
     )
     additional_notes = str(combined.get("additionalNotes") or "").strip()
+    receipt_date, receipt_time = _format_receipt_datetime(
+        combined.get("approvedAt") or combined.get("submittedAt") or combined.get("createdAt")
+    )
 
     context = {
         "logo_data_uri": logo_data_uri if logo_data_uri is not None else load_logo_data_uri(),
         "receipt_number": _escape(receipt_number),
+        "receipt_date": _escape(receipt_date),
+        "receipt_time": _escape(receipt_time),
         "customer_name": _escape(customer_name),
         "customer_email": _escape(customer_email),
+        "customer_mobile_number": _escape(customer_mobile_number),
         "company_name": _escape(company_name),
         "company_address_display": _escape(str(company_address_value or "-").strip() or "-"),
         "address_block": _build_address_block(address_lines),
@@ -258,6 +302,7 @@ def build_renewal_receipt_context(
                 "receipt_number": receipt_number,
                 "customer_name": customer_name,
                 "customer_email": customer_email,
+                "customer_mobile_number": customer_mobile_number,
                 "company_name": company_name,
                 "company_address_display": str(company_address_value or "-").strip() or "-",
                 "parking_type": parking_type,
@@ -273,6 +318,8 @@ def build_renewal_receipt_context(
         "footer_help_line": _escape(combined.get("footerHelpLine") or DEFAULT_FOOTER_HELP_LINE),
         "footer_computer_line": _escape(combined.get("footerComputerLine") or DEFAULT_FOOTER_COMPUTER_LINE),
         "footer_company_line": _escape(combined.get("footerCompanyLine") or DEFAULT_FOOTER_COMPANY_LINE),
+        "footer_address_line": _escape(combined.get("footerAddressLine") or DEFAULT_FOOTER_ADDRESS_LINE),
+        "footer_website_line": _escape(combined.get("footerWebsiteLine") or DEFAULT_FOOTER_WEBSITE_LINE),
     }
     return context
 

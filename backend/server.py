@@ -999,6 +999,7 @@ def build_registration_receipt_document(application: dict[str, Any], company_add
         'renewalType': application.get('parkingType') or 'Individual Renewal',
         'customerName': application.get('fullName') or '',
         'customerEmail': application.get('email') or '',
+        'customerMobileNumber': application.get('phoneNumber') or application.get('mobileNumber') or '',
         'companyName': application.get('companyName') or '',
         'companyAddress': company_address,
         'receiptNumber': generate_receipt_number(application.get('referenceNumber') or ''),
@@ -1108,6 +1109,9 @@ async def create_individual_renewal(
         raise HTTPException(status_code=400, detail='Full Name is required')
 
     email = normalize_email_address(payload.get('email'))
+    phone_number = str(payload.get('phoneNumber') or '').strip()
+    if not phone_number:
+        raise HTTPException(status_code=400, detail='Mobile Number is required')
 
     month_note = str(payload.get('renewalMonthNote') or '').strip()
     if not month_note:
@@ -1143,6 +1147,7 @@ async def create_individual_renewal(
         'renewalType': 'Individual',
         'fullName': full_name,
         'email': email,
+        'phoneNumber': phone_number,
         'vehiclePlateNumbers': unique_plates,
         'renewalMonthNote': month_note,
         'receiptUrl': receipt_url,
@@ -1314,11 +1319,13 @@ async def approve_renewal(
 
     customer_name = str(renewal.get('fullName') or renewal.get('contactPerson') or '').strip()
     customer_email = str(renewal.get('email') or '').strip()
+    customer_mobile_number = str(renewal.get('phoneNumber') or renewal.get('mobileNumber') or '').strip()
     vehicle_plate_numbers = renewal.get('vehiclePlateNumbers') or []
 
     receipt_info = {
         'customerName': customer_name,
         'customerEmail': customer_email,
+        'customerMobileNumber': customer_mobile_number,
         'vehiclePlateNumbers': vehicle_plate_numbers,
         'companyName': company_name,
         'companyAddress': company_address,

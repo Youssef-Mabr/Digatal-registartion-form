@@ -49,19 +49,16 @@ def test_send_email_with_attachment_builds_resend_payload(monkeypatch) -> None:
 def test_build_renewal_receipt_email_message_uses_booking_message() -> None:
     text_body, html_body = email_service.build_renewal_receipt_email_message("PDF Test User", "RCPT-123")
 
-    required_text = (
-        "Please find attached detail for your booking / renewal.\n\n"
-        "We recommend you to subscribe in advanced prior to expiry as all season parking will expired on LAST DAY of the month.\n\n"
-        "If you pay in quarterly or half-yearly, we can do refund in case of termination, for remaining non-consumed month/s.\n\n"
-        "HISPEEDCITY SDN BHD\n\n"
-        "We make things easy!\n\n"
-        "Thank You"
-    )
-
-    assert required_text in text_body
+    assert "Dear Valued customer," in text_body
+    assert "Please find the detailed booking and renewal receipt attached for your reference." in text_body
+    assert "We gently recommend renewing your season parking subscription a week prior to the expiry date." in text_body
+    assert "quarterly or half-year advance payment plans" in text_body
+    assert "Cashless Touchless Fast-Flow" in text_body
+    assert "Thank you" in text_body
+    assert "Hispeedcity Sdn Bhd (1331446-H)" in text_body
+    assert "Dear Valued customer," in html_body
+    assert "Please find the detailed booking and renewal receipt attached for your reference." in html_body
+    assert "Cashless Touchless Fast-Flow" in html_body
+    assert "Hispeedcity Sdn Bhd (1331446-H)" in html_body
     assert "PDF Test User" not in text_body
     assert "RCPT-123" not in text_body
-    assert "Please find attached detail for your booking / renewal." in html_body
-    assert "HISPEEDCITY SDN BHD" in html_body
-    assert "We make things easy!" in html_body
-    assert "Thank You" in html_body
