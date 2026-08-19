@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app/backend
+
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m playwright install --with-deps chromium
+
+COPY backend/ ./
+COPY frontend/public/assets/favicon.png /app/frontend/public/assets/favicon.png
+
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}"]

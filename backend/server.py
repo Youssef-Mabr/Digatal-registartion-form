@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, TypeAdapter
 from starlette.concurrency import run_in_threadpool
 
 from email_service import build_receipt_email_message, build_renewal_receipt_email_message, send_email_with_attachment
-from receipt_renderer import generate_renewal_receipt_pdf
+from receipt_renderer import DEFAULT_FOOTER_COMPANY_LINE, generate_renewal_receipt_pdf
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env", override=True)
@@ -665,7 +665,7 @@ class StatusUpdateRequest(BaseModel):
 
 
 class ApplicationApprovalRequest(BaseModel):
-    companyAddress: str
+    model_config = ConfigDict(extra="ignore")
 
 class RenewalCreateResponse(BaseModel):
     message: str
@@ -676,8 +676,7 @@ class RenewalCreateResponse(BaseModel):
 
 
 class RenewalApprovalRequest(BaseModel):
-    companyName: str
-    companyAddress: str
+    model_config = ConfigDict(extra="ignore")
     receiptNumber: Optional[str] = ""
     productMonth: str
     parkingType: str
@@ -882,8 +881,7 @@ async def approve_application(
     if application.get('status') == STATUS_APPROVED:
         raise HTTPException(status_code=400, detail='Application is already approved')
 
-    company_address = normalize_required_text(payload.companyAddress, 'Company Address')
-    receipt_document = build_registration_receipt_document(application, company_address, username)
+    receipt_document = build_registration_receipt_document(application, username)
 
     try:
         receipt_artifact = await generate_renewal_receipt_pdf(receipt_document)
@@ -984,7 +982,7 @@ def get_registration_receipt_totals(application: dict[str, Any]) -> tuple[int, i
     return unit_price, quantity, total_amount
 
 
-def build_registration_receipt_document(application: dict[str, Any], company_address: str, approved_by: str) -> dict[str, Any]:
+def build_registration_receipt_document(application: dict[str, Any], approved_by: str) -> dict[str, Any]:
     unit_price, quantity, total_amount = get_registration_receipt_totals(application)
     vehicles = application.get('vehicles') or normalize_vehicles(application)
     vehicle_plate_numbers = [
@@ -1000,8 +998,8 @@ def build_registration_receipt_document(application: dict[str, Any], company_add
         'customerName': application.get('fullName') or '',
         'customerEmail': application.get('email') or '',
         'customerMobileNumber': application.get('phoneNumber') or application.get('mobileNumber') or '',
-        'companyName': application.get('companyName') or '',
-        'companyAddress': company_address,
+        'companyName': DEFAULT_FOOTER_COMPANY_LINE,
+        'companyAddress': '',
         'receiptNumber': generate_receipt_number(application.get('referenceNumber') or ''),
         'parkingType': application.get('parkingType') or 'Individual Renewal',
         'subscriptionMonth': application.get('subscriptionPeriod') or '',
@@ -1303,8 +1301,8 @@ async def approve_renewal(
     if renewal.get('status') == STATUS_APPROVED:
         raise HTTPException(status_code=400, detail='Renewal request is already approved')
 
-    company_name = normalize_required_text(payload.companyName, 'Company Name')
-    company_address = normalize_required_text(payload.companyAddress, 'Company Address')
+    company_name = DEFAULT_FOOTER_COMPANY_LINE
+    company_address = ''
     product_month = normalize_required_text(payload.productMonth, 'Product / Subscription Month')
     parking_type = normalize_required_text(payload.parkingType, 'Parking Type')
     receipt_number = str(payload.receiptNumber or '').strip() or generate_receipt_number(renewal_reference)

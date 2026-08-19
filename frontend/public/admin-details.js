@@ -256,12 +256,6 @@ function wireApplicationApprovalModal() {
                 return;
             }
 
-            const companyAddress = (document.getElementById('approvalCompanyAddress').value || '').trim();
-            if (!companyAddress) {
-                showAppMessage('Company Address is required.', 'warning');
-                return;
-            }
-
             const submitButton = document.getElementById('approvalConfirmBtn');
             setButtonLoading(submitButton, true, 'Confirming...');
 
@@ -269,7 +263,7 @@ function wireApplicationApprovalModal() {
                 const result = await requestJson(`/admin/applications/${encodeURIComponent(currentApplicationApprovalContext.referenceNumber)}/approve`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ companyAddress }),
+                    body: JSON.stringify({}),
                     loadingMessage: 'Generating receipt and sending email...'
                 });
 
@@ -313,8 +307,6 @@ function openApplicationApprovalModal(referenceNumber, application) {
     document.getElementById('approvalSubscriptionPeriod').textContent = receiptPreview.subscriptionPeriod || '-';
     document.getElementById('approvalVehiclePlates').textContent = vehicleNumbers.length ? vehicleNumbers.join(', ') : '-';
     document.getElementById('approvalTotalAmount').textContent = `RM ${receiptPreview.totalAmount || 0}`;
-    document.getElementById('approvalCompanyAddress').value = '';
-
     modal.hidden = false;
     document.body.classList.add('has-open-approval-modal');
 }

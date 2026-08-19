@@ -134,6 +134,14 @@
             line-height: 1.5;
         }
 
+        .receipt__datetime {
+            display: grid;
+            gap: 4px;
+            margin-top: 10px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
         .receipt__details {
             margin-top: 24px;
         }
@@ -295,11 +303,11 @@
             </div>
             <div class="receipt__meta-right">
                 <div class="receipt__number">
-                    <div><span class="receipt__number-label">RECEIPT Number:</span> {{ receipt_number }}</div>
-                    <div class="receipt__meta-datetime">
-                        <div><strong>Date:</strong> {{ receipt_date }}</div>
-                        <div><strong>Time:</strong> {{ receipt_time }}</div>
-                    </div>
+                    <span class="receipt__number-label">RECEIPT Number:</span> {{ receipt_number }}
+                </div>
+                <div class="receipt__datetime">
+                    <div><strong>Date:</strong> {{ receipt_date }}</div>
+                    <div><strong>Time:</strong> {{ receipt_time }}</div>
                 </div>
             </div>
         </div>

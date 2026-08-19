@@ -212,8 +212,6 @@ function wireApprovalModal() {
             }
 
             const approvalPayload = {
-                companyName: (document.getElementById('approvalCompanyName').value || '').trim(),
-                companyAddress: (document.getElementById('approvalCompanyAddress').value || '').trim(),
                 receiptNumber: (document.getElementById('approvalReceiptNumber').value || '').trim(),
                 productMonth: (document.getElementById('approvalProductMonth').value || '').trim(),
                 parkingType: (document.getElementById('approvalParkingType').value || '').trim(),
@@ -223,7 +221,7 @@ function wireApprovalModal() {
                 additionalNotes: (document.getElementById('approvalAdditionalNotes').value || '').trim(),
             };
 
-            if (!approvalPayload.companyName || !approvalPayload.companyAddress || !approvalPayload.productMonth || !approvalPayload.parkingType) {
+            if (!approvalPayload.productMonth || !approvalPayload.parkingType) {
                 showAppMessage('Please complete all required receipt fields.', 'warning');
                 return;
             }
@@ -305,8 +303,6 @@ function openApprovalModal(renewalReference) {
     document.getElementById('approvalCustomerName').value = renewal.fullName || '-';
     document.getElementById('approvalCustomerEmail').value = renewal.email || '-';
     document.getElementById('approvalVehiclePlates').value = plateNumbers.length ? plateNumbers.join(', ') : '-';
-    document.getElementById('approvalCompanyName').value = renewal.companyName || '';
-    document.getElementById('approvalCompanyAddress').value = '';
     document.getElementById('approvalReceiptNumber').value = generateReceiptNumber(renewalReference);
     document.getElementById('approvalProductMonth').value = renewal.renewalMonthNote || '';
     document.getElementById('approvalParkingType').value = 'Individual Renewal';
