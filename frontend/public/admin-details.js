@@ -302,7 +302,6 @@ function openApplicationApprovalModal(referenceNumber, application) {
 
     document.getElementById('approvalCustomerName').textContent = application.fullName || '-';
     document.getElementById('approvalCustomerEmail').textContent = application.email || '-';
-    document.getElementById('approvalCompanyName').textContent = application.companyName || '-';
     document.getElementById('approvalParkingType').textContent = receiptPreview.parkingType || '-';
     document.getElementById('approvalSubscriptionPeriod').textContent = receiptPreview.subscriptionPeriod || '-';
     document.getElementById('approvalVehiclePlates').textContent = vehicleNumbers.length ? vehicleNumbers.join(', ') : '-';
