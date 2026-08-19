@@ -122,22 +122,25 @@
         .receipt__meta-right {
             flex: 0 0 auto;
             display: flex;
-            align-items: flex-start;
-            justify-content: flex-end;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-start;
+        }
+
+        .receipt__datetime {
+            display: grid;
+            gap: 4px;
+            margin-top: 8px;
+            min-width: 220px;
+            padding-right: 2px;
+            font-size: 12px;
+            line-height: 1.5;
         }
 
         .receipt__meta-datetime {
             margin-top: 10px;
             display: grid;
             gap: 4px;
-            font-size: 12px;
-            line-height: 1.5;
-        }
-
-        .receipt__datetime {
-            display: grid;
-            gap: 4px;
-            margin-top: 10px;
             font-size: 12px;
             line-height: 1.5;
         }
